@@ -1,4 +1,4 @@
-import { createMemo, createEffect, on, onCleanup, For, Show } from "solid-js"
+import { createMemo, createEffect, createSignal, on, onCleanup, For, Show } from "solid-js"
 import type { JSX } from "solid-js"
 import { useSync } from "@/context/sync"
 import { checksum } from "@opencode-ai/core/util/encode"
@@ -93,6 +93,113 @@ function RawMessage(props: {
 
 const emptyMessages: Message[] = []
 const emptyUserMessages: UserMessage[] = []
+
+// mindscript_change: what the MindScript engine did on every step of this session.
+// Data comes from the gateway's `x_orchestrator` metadata, kept on step-finish parts.
+type MindScriptStep = {
+  messageID: string
+  model: string
+  routed: string
+  fingerprint: string
+  cost: number
+  savings: number
+  baseline: number
+}
+const SHOW_MODELS_KEY = "mindscript.showModelNames"
+function readShowModels(): boolean {
+  try {
+    return localStorage.getItem(SHOW_MODELS_KEY) !== "false"
+  } catch {
+    return true
+  }
+}
+function mindscriptSteps(messages: Message[], getParts: (id: string) => Part[]): MindScriptStep[] {
+  const out: MindScriptStep[] = []
+  for (const message of messages) {
+    if (message.role !== "assistant") continue
+    for (const part of getParts(message.id)) {
+      if (part.type !== "step-finish") continue
+      const meta = (part as unknown as { metadata?: { mindscript?: Record<string, unknown> } }).metadata?.mindscript
+      if (!meta) continue
+      const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : 0)
+      out.push({
+        messageID: message.id,
+        model: typeof meta.model === "string" ? meta.model : "?",
+        routed: typeof meta.routed === "string" ? meta.routed : "?",
+        fingerprint: typeof meta.fingerprint === "string" ? meta.fingerprint : "",
+        cost: num(meta.effective_cost_usd),
+        savings: num(meta.savings_vs_premium_usd),
+        baseline: num(meta.premium_baseline_cost_usd),
+      })
+    }
+  }
+  return out
+}
+
+function MindScriptSection(props: { messages: Message[]; getParts: (id: string) => Part[] }) {
+  const language = useLanguage()
+  const [showModels, setShowModels] = createSignal(readShowModels())
+  const steps = createMemo(() => mindscriptSteps(props.messages, props.getParts))
+  const totals = createMemo(() => {
+    const s = steps()
+    const cost = s.reduce((a, x) => a + x.cost, 0)
+    const savings = s.reduce((a, x) => a + x.savings, 0)
+    const baseline = s.reduce((a, x) => a + x.baseline, 0)
+    const models = new Map<string, number>()
+    for (const x of s) models.set(x.model, (models.get(x.model) ?? 0) + 1)
+    return { cost, savings, baseline, steps: s.length, models: [...models.entries()].sort((a, b) => b[1] - a[1]) }
+  })
+  const usd = createMemo(() => new Intl.NumberFormat(language.intl(), { style: "currency", currency: "USD", maximumFractionDigits: 4 }))
+  const tier = (model: string) => (/fable|opus|gpt-6|astra/i.test(model) ? "premium" : /haiku|mini|flash|4\.1/i.test(model) ? "fast" : "standard")
+  const label = (model: string) => (showModels() ? model : tier(model))
+  const toggle = () => {
+    const next = !showModels()
+    setShowModels(next)
+    try {
+      localStorage.setItem(SHOW_MODELS_KEY, String(next))
+    } catch {}
+  }
+  return (
+    <Show when={steps().length > 0}>
+      <div class="flex flex-col gap-3 border border-border-base rounded-md bg-surface-base px-4 py-3">
+        <div class="flex items-center justify-between">
+          <div class="text-12-medium text-text-strong">MindScript</div>
+          <Button size="small" variant="ghost" class="px-2 text-text-weak hover:text-text-base" onClick={toggle}>
+            {showModels() ? "Hide model names" : "Show model names"}
+          </Button>
+        </div>
+        <div class="grid grid-cols-2 @[32rem]:grid-cols-4 gap-4">
+          <Stat label="Steps" value={totals().steps.toLocaleString(language.intl())} />
+          <Stat label="Cost" value={usd().format(totals().cost)} />
+          <Stat label="Saved vs. premium" value={usd().format(totals().savings)} />
+          <Stat label="Premium would cost" value={usd().format(totals().baseline)} />
+        </div>
+        <div class="flex flex-wrap gap-x-3 gap-y-1 text-11-regular text-text-weak">
+          <For each={totals().models}>
+            {([model, n]) => (
+              <div>
+                <span class="text-text-base">{label(model)}</span> ×{n}
+              </div>
+            )}
+          </For>
+        </div>
+        <div class="flex flex-col gap-1 text-11-regular text-text-weak max-h-40 overflow-auto">
+          <For each={steps()}>
+            {(s, i) => (
+              <div class="flex items-center justify-between gap-2">
+                <div class="min-w-0 truncate">
+                  {i() + 1}. <span class="text-text-base">{label(s.model)}</span>
+                  <span class="text-text-weaker"> · {s.routed}{s.fingerprint ? ` · ${s.fingerprint}` : ""}</span>
+                </div>
+                <div class="shrink-0">{usd().format(s.cost)}</div>
+              </div>
+            )}
+          </For>
+        </div>
+      </div>
+    </Show>
+  )
+}
 
 export function SessionContextTab() {
   const sync = useSync()
@@ -308,6 +415,8 @@ export function SessionContextTab() {
       onScroll={handleScroll}
     >
       <div class="px-6 pt-4 pb-10 flex flex-col gap-10">
+        <MindScriptSection messages={messages()} getParts={getParts} />
+
         <div class="grid grid-cols-1 @[32rem]:grid-cols-2 gap-4">
           <For each={stats}>
             {(stat) => <Stat label={language.t(stat.label as Parameters<typeof language.t>[0])} value={stat.value()} />}

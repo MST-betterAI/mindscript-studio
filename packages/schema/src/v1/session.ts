@@ -242,6 +242,9 @@ export const StepFinishPart = Schema.Struct({
   type: Schema.Literal("step-finish"),
   reason: Schema.String,
   snapshot: Schema.optional(Schema.String),
+  // mindscript_change: provider-side routing metadata for this step (which model the
+  // MindScript engine actually used, its cost and savings) — see llm/ai-sdk.ts "raw".
+  metadata: Schema.optional(Schema.Record(Schema.String, Schema.Any)),
   cost: Schema.Finite,
   tokens: Schema.Struct({
     total: Schema.optional(Schema.Finite),

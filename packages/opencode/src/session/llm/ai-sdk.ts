@@ -16,7 +16,27 @@ export function adapterState() {
     currentReasoningID: undefined as string | undefined,
     toolNames: {} as Record<string, string>,
     copilotTotalNanoAiu: undefined as number | undefined,
+    // mindscript_change: routing metadata the MindScript gateway sends in its final chunk.
+    mindscript: undefined as Record<string, unknown> | undefined,
   }
+}
+
+// mindscript_change: the gateway's OpenAI-compatible chunks carry `x_orchestrator`
+// (routing id, mode, provider, costs, savings, fingerprint) and `model` (the id it
+// actually routed to). Only the final/usage chunk has it.
+function mindscriptMeta(value: unknown) {
+  if (!value || typeof value !== "object") return
+  const raw = value as Record<string, unknown>
+  const meta = raw.x_orchestrator
+  if (!meta || typeof meta !== "object") return
+  const out: Record<string, unknown> = {}
+  for (const [k, v] of Object.entries(meta as Record<string, unknown>)) {
+    if (v === undefined) continue
+    if (typeof v === "string" || typeof v === "number" || typeof v === "boolean" || v === null) out[k] = v
+    else if (v && typeof v === "object") out[k] = JSON.parse(JSON.stringify(v))
+  }
+  if (typeof raw.model === "string") out.model = raw.model
+  return out
 }
 
 function finishReason(value: string | undefined): FinishReason {
@@ -90,7 +110,7 @@ export function toLLMEvents(
         return Effect.fail(new ProviderError.ResponseStreamError("Provider finish_reason: network_error"))
       return Effect.sync(() => {
         const original = providerMetadata(event.providerMetadata)
-        const metadata =
+        const withCopilot =
           state.copilotTotalNanoAiu === undefined
             ? original
             : {
@@ -100,6 +120,9 @@ export function toLLMEvents(
                   totalNanoAiu: state.copilotTotalNanoAiu,
                 },
               }
+        // mindscript_change: attach the gateway's routing metadata to this step.
+        const metadata = state.mindscript === undefined ? withCopilot : { ...withCopilot, mindscript: state.mindscript }
+        state.mindscript = undefined
         state.copilotTotalNanoAiu = undefined
         return [
           LLMEvent.stepFinish({
@@ -277,6 +300,7 @@ export function toLLMEvents(
     case "raw":
       return Effect.sync(() => {
         state.copilotTotalNanoAiu = copilotTotalNanoAiu(event.rawValue) ?? state.copilotTotalNanoAiu
+        state.mindscript = mindscriptMeta(event.rawValue) ?? state.mindscript // mindscript_change
         return []
       })
 

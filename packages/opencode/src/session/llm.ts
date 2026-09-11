@@ -292,7 +292,9 @@ const live: Layer.Layer<
             )
           },
           // Copilot returns the authoritative billed amount only in provider-specific response fields.
-          includeRawChunks: input.model.providerID.includes("github-copilot"),
+          // mindscript_change: the MindScript gateway reports the model it routed to
+          // (and the real cost) in an `x_orchestrator` field of its final chunk.
+          includeRawChunks: input.model.providerID.includes("github-copilot") || input.model.providerID === "mindscript",
           async experimental_repairToolCall(failed) {
             const lower = failed.toolCall.toolName.toLowerCase()
             if (lower !== failed.toolCall.toolName && prepared.tools[lower]) {
