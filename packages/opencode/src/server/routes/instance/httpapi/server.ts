@@ -88,6 +88,8 @@ import { controlPlaneHandlers } from "./handlers/control-plane"
 import { experimentalHandlers } from "./handlers/experimental"
 import { fileHandlers } from "./handlers/file"
 import { globalHandlers } from "./handlers/global"
+import { mindscriptHandlers } from "./handlers/mindscript" // mindscript_change
+import { MindScriptApi } from "./groups/mindscript" // mindscript_change
 import { instanceHandlers } from "./handlers/instance"
 import { mcpHandlers } from "./handlers/mcp"
 import { permissionHandlers } from "./handlers/permission"
@@ -146,6 +148,11 @@ const rootApiRoutes = HttpApiBuilder.layer(RootHttpApi).pipe(
 const eventApiRoutes = HttpApiBuilder.layer(EventApi).pipe(
   Layer.provide(eventHandlers),
   Layer.provide([httpApiAuthLayer, workspaceRoutingLive, instanceContextLayer]),
+)
+const mindscriptApiRoutes = HttpApiBuilder.layer(MindScriptApi).pipe(
+  // mindscript_change: account-wide engine usage, proxied server-side (see groups/mindscript.ts)
+  Layer.provide(mindscriptHandlers),
+  Layer.provide(httpApiAuthLayer),
 )
 const ptyConnectApiRoutes = HttpApiBuilder.layer(PtyConnectApi).pipe(
   Layer.provide(ptyConnectHandlers),
@@ -276,6 +283,7 @@ export function createRoutes(
   return Layer.mergeAll(
     rootApiRoutes,
     eventApiRoutes,
+    mindscriptApiRoutes, // mindscript_change
     ptyConnectApiRoutes,
     instanceRoutes,
     serverRoutes,

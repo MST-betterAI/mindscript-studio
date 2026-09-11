@@ -283,6 +283,26 @@ replace(
 )
 
 // ---------------------------------------------------------------------------
+// 4d. Server route group `mindscript` (new files live in the repo; only the
+// registration lines are patched here so they survive rebases)
+// ---------------------------------------------------------------------------
+const HTTPAPI = "packages/opencode/src/server/routes/instance/httpapi"
+// Mounted as its own API next to the event API (not inside RootHttpApi) so
+// upstream's root-API tests keep compiling unchanged.
+replace(`${HTTPAPI}/server.ts`, 'import { globalHandlers } from "./handlers/global"\n', 'import { globalHandlers } from "./handlers/global"\nimport { mindscriptHandlers } from "./handlers/mindscript" // mindscript_change\nimport { MindScriptApi } from "./groups/mindscript" // mindscript_change\n')
+replace(
+  `${HTTPAPI}/server.ts`,
+  "const ptyConnectApiRoutes = HttpApiBuilder.layer(PtyConnectApi).pipe(",
+  `const mindscriptApiRoutes = HttpApiBuilder.layer(MindScriptApi).pipe(
+  // mindscript_change: account-wide engine usage, proxied server-side (see groups/mindscript.ts)
+  Layer.provide(mindscriptHandlers),
+  Layer.provide(httpApiAuthLayer),
+)
+const ptyConnectApiRoutes = HttpApiBuilder.layer(PtyConnectApi).pipe(`,
+)
+replace(`${HTTPAPI}/server.ts`, "    rootApiRoutes,\n    eventApiRoutes,\n", "    rootApiRoutes,\n    eventApiRoutes,\n    mindscriptApiRoutes, // mindscript_change\n")
+
+// ---------------------------------------------------------------------------
 // 5. Web app + desktop renderer: title and user-facing strings
 // ---------------------------------------------------------------------------
 replace("packages/app/index.html", "<title>OpenCode</title>", "<title>MindScript Studio</title>")
