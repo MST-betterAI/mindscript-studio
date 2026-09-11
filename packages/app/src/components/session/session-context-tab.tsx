@@ -136,7 +136,7 @@ function mindscriptSteps(messages: Message[], getParts: (id: string) => Part[]):
   return out
 }
 
-function MindScriptSection(props: { messages: Message[]; getParts: (id: string) => Part[] }) {
+export function MindScriptSection(props: { messages: Message[]; getParts: (id: string) => Part[] }) {
   const language = useLanguage()
   const [showModels, setShowModels] = createSignal(readShowModels())
   const steps = createMemo(() => mindscriptSteps(props.messages, props.getParts))
