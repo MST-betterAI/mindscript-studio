@@ -29,6 +29,16 @@ async function signWindows(configuration: { path: string }) {
   )
 }
 
+// mindscript_change: ad-hoc sign the packed app when no Developer ID is used.
+async function adhocSign(context: { appOutDir: string; electronPlatformName: string; packager: { appInfo: { productFilename: string } } }) {
+  if (context.electronPlatformName !== "darwin") return
+  if (process.env.MINDSCRIPT_SIGN === "1") return
+  const appPath = path.join(context.appOutDir, `${context.packager.appInfo.productFilename}.app`)
+  await execFileAsync("codesign", ["--force", "--deep", "--sign", "-", appPath])
+  await execFileAsync("codesign", ["--verify", "--deep", "--strict", appPath])
+  console.log(`  • ad-hoc signed  ${appPath}`)
+}
+
 const channel = (() => {
   const raw = process.env.OPENCODE_CHANNEL
   if (raw === "dev" || raw === "beta" || raw === "prod") return raw
@@ -72,6 +82,7 @@ const getBase = (appId: string): Configuration => ({
       filter: ["index.js", "index.d.ts", "build/Release/mac_window.node", "swift-build/**"],
     },
   ],
+  afterPack: adhocSign, // mindscript_change
   mac: {
     category: "public.app-category.developer-tools",
     icon: `resources/icons/icon.icns`,

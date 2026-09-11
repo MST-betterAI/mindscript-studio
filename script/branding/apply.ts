@@ -192,6 +192,28 @@ replace(EB, '  protocols: {\n    name: "OpenCode",\n    schemes: ["opencode"],\n
 replace(EB, "    hardenedRuntime: true,\n", '    hardenedRuntime: process.env.MINDSCRIPT_SIGN === "1", // mindscript_change\n')
 replace(EB, "    notarize: true,\n", '    notarize: process.env.MINDSCRIPT_SIGN === "1",\n')
 replace(EB, "  dmg: {\n    sign: true,\n  },", '  dmg: {\n    sign: process.env.MINDSCRIPT_SIGN === "1",\n  },')
+// Without a Developer ID, electron-builder leaves the bundle with Electron's
+// linker-only signature and no resource seal; Finder/LaunchServices then refuses
+// to launch it (codesign: "code has no resources but signature indicates they must
+// be present"). An ad-hoc deep signature after packing makes the dmg/zip launchable
+// (Gatekeeper still shows the unidentified-developer prompt until MINDSCRIPT_SIGN=1).
+replace(
+  EB,
+  "const channel = (() => {\n  const raw = process.env.OPENCODE_CHANNEL",
+  `// mindscript_change: ad-hoc sign the packed app when no Developer ID is used.
+async function adhocSign(context: { appOutDir: string; electronPlatformName: string; packager: { appInfo: { productFilename: string } } }) {
+  if (context.electronPlatformName !== "darwin") return
+  if (process.env.MINDSCRIPT_SIGN === "1") return
+  const appPath = path.join(context.appOutDir, \`\${context.packager.appInfo.productFilename}.app\`)
+  await execFileAsync("codesign", ["--force", "--deep", "--sign", "-", appPath])
+  await execFileAsync("codesign", ["--verify", "--deep", "--strict", appPath])
+  console.log(\`  • ad-hoc signed  \${appPath}\`)
+}
+
+const channel = (() => {
+  const raw = process.env.OPENCODE_CHANNEL`,
+)
+replace(EB, '  mac: {\n    category: "public.app-category.developer-tools",', '  afterPack: adhocSign, // mindscript_change\n  mac: {\n    category: "public.app-category.developer-tools",')
 replace(EB, 'productName: "OpenCode Dev",', 'productName: "MindScript Studio Dev",')
 replace(EB, 'rpm: { packageName: "opencode-dev", fpm: [metainfoFpm(appId)] },', 'rpm: { packageName: "mindscript-studio-dev", fpm: [metainfoFpm(appId)] },')
 replace(EB, 'productName: "OpenCode Beta",', 'productName: "MindScript Studio Beta",')
@@ -202,6 +224,27 @@ replace(EB, 'productName: "OpenCode",', 'productName: "MindScript Studio",')
 replace(EB, 'protocols: { name: "OpenCode", schemes: ["opencode"] },', 'protocols: { name: "MindScript Studio", schemes: ["mindscript"] },')
 replace(EB, 'publish: { provider: "github", owner: "anomalyco", repo: "opencode", channel: "latest" },', 'publish: { provider: "github", owner: "MST-betterAI", repo: "mindscript-studio", channel: "latest" },')
 replace(EB, 'rpm: { packageName: "opencode", fpm: [metainfoFpm(appId), legacyDesktopEntryFpm] },', 'rpm: { packageName: "mindscript-studio", fpm: [metainfoFpm(appId), legacyDesktopEntryFpm] },')
+
+// 4b. Desktop main process: the same identity at runtime. The app id names the
+// data folder (~/Library/Application Support/<id>) and Electron's single-instance
+// lock is keyed on it — with the upstream id, MindScript Studio silently quits
+// whenever the stock OpenCode desktop app is open.
+const DM = "packages/desktop/src/main"
+const APP_ID_BLOCK = '  dev: "ai.opencode.desktop.dev",\n  beta: "ai.opencode.desktop.beta",\n  prod: "ai.opencode.desktop",'
+const APP_ID_BLOCK_MS = '  dev: "ai.mindscript.studio.dev", // mindscript_change\n  beta: "ai.mindscript.studio.beta",\n  prod: "ai.mindscript.studio",'
+replace(`${DM}/index.ts`, '  dev: "OpenCode Dev",\n  beta: "OpenCode Beta",\n  prod: "OpenCode",', '  dev: "MindScript Studio Dev", // mindscript_change\n  beta: "MindScript Studio Beta",\n  prod: "MindScript Studio",')
+replace(`${DM}/index.ts`, APP_ID_BLOCK, APP_ID_BLOCK_MS)
+replace(`${DM}/index.ts`, 'const appId = app.isPackaged ? APP_IDS[CHANNEL] : "ai.opencode.desktop.dev"', 'const appId = app.isPackaged ? APP_IDS[CHANNEL] : "ai.mindscript.studio.dev" // mindscript_change')
+replace(`${DM}/index.ts`, 'app.setName(app.isPackaged ? APP_NAMES[CHANNEL] : "OpenCode Dev")', 'app.setName(app.isPackaged ? APP_NAMES[CHANNEL] : "MindScript Studio Dev") // mindscript_change')
+replace(`${DM}/index.ts`, 'const urls = argv.filter((arg: string) => arg.startsWith("opencode://"))', 'const urls = argv.filter((arg: string) => arg.startsWith("mindscript://")) // mindscript_change')
+replace(`${DM}/index.ts`, 'app.setAsDefaultProtocolClient("opencode")', 'app.setAsDefaultProtocolClient("mindscript") // mindscript_change')
+// The Tauri-era migration must never read the stock OpenCode app's folder.
+replace(`${DM}/migrate.ts`, APP_ID_BLOCK, APP_ID_BLOCK_MS)
+replace(`${DM}/migrate.ts`, 'return app.isPackaged ? TAURI_APP_IDS[CHANNEL] : "ai.opencode.desktop.dev"', 'return app.isPackaged ? TAURI_APP_IDS[CHANNEL] : "ai.mindscript.studio.dev" // mindscript_change')
+replace(`${DM}/background-cli.ts`, 'const desktopStateNames = ["ai.opencode.desktop.dev", "ai.opencode.desktop.beta", "ai.opencode.desktop"]', 'const desktopStateNames = ["ai.mindscript.studio.dev", "ai.mindscript.studio.beta", "ai.mindscript.studio"] // mindscript_change')
+replace(`${DM}/windows.ts`, '    title: "OpenCode",\n', '    title: "MindScript Studio", // mindscript_change\n')
+// Deep links: accept mindscript:// (and keep opencode:// so upstream tests still pass).
+replace("packages/app/src/pages/layout/deep-links.ts", '  if (!input.startsWith("opencode://")) return\n', '  if (!input.startsWith("mindscript://") && !input.startsWith("opencode://")) return // mindscript_change\n')
 
 // ---------------------------------------------------------------------------
 // 5. Web app + desktop renderer: title and user-facing strings
