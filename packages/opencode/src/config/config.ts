@@ -29,6 +29,32 @@ import { ConfigPluginV1 } from "@opencode-ai/core/v1/config/plugin"
 import { ConfigAgent } from "./agent"
 import { ConfigCommand } from "./command"
 import { ConfigManaged } from "./managed"
+
+// mindscript_change: MindScript Studio ships with its engine pre-configured. Every
+// user/project config merges on top, so anything here can be overridden. The key
+// is not here: it comes from `mindscript auth login` (auth.json) or the user's config.
+function mindscriptBuiltinConfig(): Info {
+  const baseURL = (process.env["MINDSCRIPT_BASE_URL"] ?? "http://127.0.0.1:8787/v1").replace(/\/$/, "")
+  const zero = { input: 0, output: 0, cache_read: 0, cache_write: 0 }
+  return {
+    provider: {
+      mindscript: {
+        npm: "@ai-sdk/openai-compatible",
+        name: "MindScript",
+        options: { baseURL, headers: { "X-MindScript-Client": "mindscript-studio" } },
+        models: {
+          auto: { name: "MindScript Auto", tool_call: true, attachment: true, limit: { context: 400000, output: 32000 }, cost: zero },
+          premium: { id: "claude-fable-5-1", name: "MindScript Premium", tool_call: true, attachment: true, limit: { context: 1000000, output: 32000 }, cost: zero },
+        },
+      },
+    },
+    model: "mindscript/auto",
+    small_model: "mindscript/auto",
+    enabled_providers: ["mindscript"],
+    share: "disabled",
+    autoupdate: false,
+  } as unknown as Info
+}
 import { ConfigParse } from "./parse"
 import { ConfigPaths } from "./paths"
 import { ConfigPlugin } from "./plugin"
@@ -272,6 +298,9 @@ const layer = Layer.effect(
       result = mergeConfig(result, yield* loadFile(path.join(Global.Path.config, "config.json"), env))
       result = mergeConfig(result, yield* loadFile(path.join(Global.Path.config, "opencode.json"), env))
       result = mergeConfig(result, yield* loadFile(path.join(Global.Path.config, "opencode.jsonc"), env))
+      // mindscript_change: our own file names, merged last so they win.
+      result = mergeConfig(result, yield* loadFile(path.join(Global.Path.config, "mindscript.json"), env))
+      result = mergeConfig(result, yield* loadFile(path.join(Global.Path.config, "mindscript.jsonc"), env))
 
       const legacy = path.join(Global.Path.config, "config")
       if (existsSync(legacy)) {
@@ -409,6 +438,7 @@ const layer = Layer.effect(
           }
         }
 
+        yield* merge("mindscript-builtin", mindscriptBuiltinConfig(), "global") // mindscript_change
         const global = Object.keys(authEnv).length ? yield* loadGlobal(authEnv) : yield* getGlobal()
         yield* merge(Global.Path.config, global, "global")
 
@@ -419,6 +449,10 @@ const layer = Layer.effect(
 
         if (!Flag.OPENCODE_DISABLE_PROJECT_CONFIG) {
           for (const file of yield* ConfigPaths.files("opencode", ctx.directory, ctx.worktree).pipe(Effect.orDie)) {
+            yield* merge(file, yield* loadFile(file, authEnv), "local")
+          }
+          // mindscript_change
+          for (const file of yield* ConfigPaths.files("mindscript", ctx.directory, ctx.worktree).pipe(Effect.orDie)) {
             yield* merge(file, yield* loadFile(file, authEnv), "local")
           }
         }
@@ -436,8 +470,8 @@ const layer = Layer.effect(
         const deps: Fiber.Fiber<void>[] = []
 
         for (const dir of directories) {
-          if (dir.endsWith(".opencode") || dir === Flag.OPENCODE_CONFIG_DIR) {
-            for (const file of ["opencode.json", "opencode.jsonc"]) {
+          if (dir.endsWith(".opencode") || dir.endsWith(".mindscript") || dir === Flag.OPENCODE_CONFIG_DIR) { // mindscript_change
+            for (const file of ["opencode.json", "opencode.jsonc", "mindscript.json", "mindscript.jsonc"]) {
               const source = path.join(dir, file)
               yield* Effect.logDebug(`loading config from ${source}`)
               yield* merge(source, yield* loadFile(source, authEnv))

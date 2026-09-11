@@ -36,13 +36,13 @@ const channel = (() => {
 })()
 
 const APP_IDS = {
-  dev: "ai.opencode.desktop.dev",
-  beta: "ai.opencode.desktop.beta",
-  prod: "ai.opencode.desktop",
+  dev: "ai.mindscript.studio.dev",
+  beta: "ai.mindscript.studio.beta",
+  prod: "ai.mindscript.studio",
 } as const
 
 const getBase = (appId: string): Configuration => ({
-  artifactName: "opencode-desktop-${os}-${arch}.${ext}",
+  artifactName: "mindscript-studio-${os}-${arch}.${ext}", // mindscript_change
   directories: {
     output: "dist",
     buildResources: "resources",
@@ -75,19 +75,19 @@ const getBase = (appId: string): Configuration => ({
   mac: {
     category: "public.app-category.developer-tools",
     icon: `resources/icons/icon.icns`,
-    hardenedRuntime: true,
+    hardenedRuntime: process.env.MINDSCRIPT_SIGN === "1", // mindscript_change
     gatekeeperAssess: false,
     entitlements: "resources/entitlements.plist",
     entitlementsInherit: "resources/entitlements.plist",
-    notarize: true,
+    notarize: process.env.MINDSCRIPT_SIGN === "1",
     target: ["dmg", "zip"],
   },
   dmg: {
-    sign: true,
+    sign: process.env.MINDSCRIPT_SIGN === "1",
   },
   protocols: {
-    name: "OpenCode",
-    schemes: ["opencode"],
+    name: "MindScript Studio",
+    schemes: ["mindscript"],
   },
   win: {
     icon: `resources/icons/icon.ico`,
@@ -127,31 +127,31 @@ function getConfig() {
       return {
         ...base,
         appId,
-        productName: "OpenCode Dev",
+        productName: "MindScript Studio Dev",
         deb: { fpm: [metainfoFpm(appId)] },
-        rpm: { packageName: "opencode-dev", fpm: [metainfoFpm(appId)] },
+        rpm: { packageName: "mindscript-studio-dev", fpm: [metainfoFpm(appId)] },
       }
     }
     case "beta": {
       return {
         ...base,
         appId,
-        productName: "OpenCode Beta",
-        protocols: { name: "OpenCode Beta", schemes: ["opencode"] },
-        publish: { provider: "github", owner: "anomalyco", repo: "opencode-beta", channel: "latest" },
+        productName: "MindScript Studio Beta",
+        protocols: { name: "MindScript Studio Beta", schemes: ["mindscript"] },
+        publish: { provider: "github", owner: "MST-betterAI", repo: "mindscript-studio-beta", channel: "latest" },
         deb: { fpm: [metainfoFpm(appId)] },
-        rpm: { packageName: "opencode-beta", fpm: [metainfoFpm(appId)] },
+        rpm: { packageName: "mindscript-studio-beta", fpm: [metainfoFpm(appId)] },
       }
     }
     case "prod": {
       return {
         ...base,
         appId,
-        productName: "OpenCode",
-        protocols: { name: "OpenCode", schemes: ["opencode"] },
-        publish: { provider: "github", owner: "anomalyco", repo: "opencode", channel: "latest" },
+        productName: "MindScript Studio",
+        protocols: { name: "MindScript Studio", schemes: ["mindscript"] },
+        publish: { provider: "github", owner: "MST-betterAI", repo: "mindscript-studio", channel: "latest" },
         deb: { fpm: [metainfoFpm(appId), legacyDesktopEntryFpm] },
-        rpm: { packageName: "opencode", fpm: [metainfoFpm(appId), legacyDesktopEntryFpm] },
+        rpm: { packageName: "mindscript-studio", fpm: [metainfoFpm(appId), legacyDesktopEntryFpm] },
       }
     }
   }
