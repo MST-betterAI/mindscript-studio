@@ -6,7 +6,7 @@ import { InstallationVersion } from "@opencode-ai/core/installation/version"
 
 export const UpgradeCommand = {
   command: "upgrade [target]",
-  describe: "upgrade opencode to the latest or a specific version",
+  describe: "how to update MindScript Studio", // mindscript_change
   builder: (yargs: Argv) => {
     return yargs
       .positional("target", {
@@ -25,6 +25,12 @@ export const UpgradeCommand = {
     UI.println(UI.logo("  "))
     UI.empty()
     prompts.intro("Upgrade")
+    // mindscript_change: releases live on GitHub; the upstream installer would replace this binary with OpenCode.
+    if (!process.env.MINDSCRIPT_UPSTREAM_UPGRADE) {
+      prompts.log.info("MindScript Studio updates are published at https://github.com/MST-betterAI/mindscript-studio/releases — download the latest build there.")
+      prompts.outro("Nothing changed.")
+      return
+    }
     const detectedMethod = await Installation.method()
     const method = (args.method as Installation.Method) ?? detectedMethod
     if (method === "unknown") {

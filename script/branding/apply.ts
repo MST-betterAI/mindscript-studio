@@ -263,6 +263,25 @@ replace("packages/desktop/src/renderer/index.tsx", '        icon: "https://openc
 replace("packages/app/src/context/highlights.tsx", 'const CHANGELOG_URL = "https://opencode.ai/changelog.json"', 'const CHANGELOG_URL = "https://mindscript.ai/studio/changelog.json" // mindscript_change')
 replace("packages/app/src/i18n/en.ts", '"error.page.report.discord": "on Discord",', '"error.page.report.discord": "on GitHub", // mindscript_change', { optional: true })
 
+// `mindscript upgrade` must never pull the upstream install script over our binary.
+replace("packages/opencode/src/cli/cmd/upgrade.ts", 'describe: "upgrade opencode to the latest or a specific version",', 'describe: "how to update MindScript Studio", // mindscript_change')
+replace(
+  "packages/opencode/src/cli/cmd/upgrade.ts",
+  '  handler: async (args: { target?: string; method?: string }) => {\n    UI.empty()\n    UI.println(UI.logo("  "))\n    UI.empty()\n    prompts.intro("Upgrade")\n',
+  `  handler: async (args: { target?: string; method?: string }) => {
+    UI.empty()
+    UI.println(UI.logo("  "))
+    UI.empty()
+    prompts.intro("Upgrade")
+    // mindscript_change: releases live on GitHub; the upstream installer would replace this binary with OpenCode.
+    if (!process.env.MINDSCRIPT_UPSTREAM_UPGRADE) {
+      prompts.log.info("MindScript Studio updates are published at ${REPO}/releases — download the latest build there.")
+      prompts.outro("Nothing changed.")
+      return
+    }
+`,
+)
+
 // ---------------------------------------------------------------------------
 // 5. Web app + desktop renderer: title and user-facing strings
 // ---------------------------------------------------------------------------
