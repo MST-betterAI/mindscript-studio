@@ -2002,6 +2002,34 @@ export default function Page() {
     makeEventListener(document, "keydown", handleKeyDown)
   })
 
+  // mindscript_change: when Studio runs inside the VS Code extension's webview, the
+  // extension posts "add this file/selection to the prompt" messages into this frame.
+  // Only the VS Code webview origins are trusted; the app announces readiness so the
+  // extension can queue messages sent before this page mounted.
+  onMount(() => {
+    if (window.parent === window) return
+    const trusted = (origin: string) => origin.startsWith("vscode-webview://") || /\.vscode-cdn\.net$/.test(origin)
+    makeEventListener(window, "message", (event: MessageEvent) => {
+      if (typeof event.origin !== "string" || !trusted(event.origin)) return
+      const data = event.data as { type?: unknown; path?: unknown; selection?: unknown; preview?: unknown } | null
+      if (!data || data.type !== "mindscript.prompt.add" || typeof data.path !== "string" || !data.path) return
+      const raw = data.selection as Partial<FileSelection> | undefined
+      const selection: FileSelection | undefined =
+        raw && typeof raw.startLine === "number" && typeof raw.endLine === "number"
+          ? selectionFromLines({ start: raw.startLine, end: raw.endLine })
+          : undefined
+      const preview =
+        typeof data.preview === "string" && data.preview
+          ? data.preview
+          : selection
+            ? selectionPreview(data.path, selection)
+            : undefined
+      prompt.context.add({ type: "file", path: data.path, selection, preview })
+      focusInput()
+    })
+    window.parent.postMessage({ type: "mindscript.ready" }, "*")
+  })
+
   onCleanup(() => {
     if (reviewFrame !== undefined) cancelAnimationFrame(reviewFrame)
     if (todoFrame !== undefined) cancelAnimationFrame(todoFrame)

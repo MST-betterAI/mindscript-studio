@@ -1,0 +1,200 @@
+{
+  "packages/app/src/components/dialog-connect-provider.tsx": {
+    "count": 2
+  },
+  "packages/app/src/components/dialog-custom-provider.tsx": {
+    "count": 1
+  },
+  "packages/app/src/components/settings-general.tsx": {
+    "count": 1
+  },
+  "packages/app/src/components/settings-v2/general.tsx": {
+    "count": 1
+  },
+  "packages/app/src/entry.tsx": {
+    "count": 1
+  },
+  "packages/app/src/pages/layout/helpers.ts": {
+    "count": 1
+  },
+  "packages/core/src/models-dev.ts": {
+    "count": 2
+  },
+  "packages/core/src/plugin/provider/kilo.ts": {
+    "count": 1
+  },
+  "packages/core/src/plugin/provider/llmgateway.ts": {
+    "count": 1
+  },
+  "packages/core/src/plugin/provider/nvidia.ts": {
+    "count": 1
+  },
+  "packages/core/src/plugin/provider/opencode.ts": {
+    "count": 1
+  },
+  "packages/core/src/plugin/provider/openrouter.ts": {
+    "count": 1
+  },
+  "packages/core/src/plugin/provider/vercel.ts": {
+    "count": 1
+  },
+  "packages/core/src/plugin/provider/zenmux.ts": {
+    "count": 1
+  },
+  "packages/core/src/v1/config/config.ts": {
+    "count": 2
+  },
+  "packages/desktop/src/main/wsl/runtime.ts": {
+    "count": 1
+  },
+  "packages/opencode/src/cli/cmd/account.ts": {
+    "count": 1
+  },
+  "packages/opencode/src/cli/cmd/github.handler.ts": {
+    "count": 5
+  },
+  "packages/opencode/src/cli/cmd/import.ts": {
+    "count": 1
+  },
+  "packages/opencode/src/cli/cmd/providers.ts": {
+    "count": 2
+  },
+  "packages/opencode/src/config/config.ts": {
+    "count": 5
+  },
+  "packages/opencode/src/config/tui-migrate.ts": {
+    "count": 1
+  },
+  "packages/opencode/src/installation/index.ts": {
+    "count": 1
+  },
+  "packages/opencode/src/mcp/oauth-provider.ts": {
+    "count": 1
+  },
+  "packages/opencode/src/provider/provider.ts": {
+    "count": 6
+  },
+  "packages/opencode/src/server/shared/ui.ts": {
+    "count": 1
+  },
+  "packages/opencode/src/session/retry.ts": {
+    "count": 2
+  },
+  "packages/opencode/src/share/share-next.ts": {
+    "count": 1
+  },
+  "packages/ui/src/theme/desktop-theme.schema.json": {
+    "count": 1
+  },
+  "packages/ui/src/theme/themes/amoled.json": {
+    "count": 1
+  },
+  "packages/ui/src/theme/themes/aura.json": {
+    "count": 1
+  },
+  "packages/ui/src/theme/themes/ayu.json": {
+    "count": 1
+  },
+  "packages/ui/src/theme/themes/carbonfox.json": {
+    "count": 1
+  },
+  "packages/ui/src/theme/themes/catppuccin-frappe.json": {
+    "count": 1
+  },
+  "packages/ui/src/theme/themes/catppuccin-macchiato.json": {
+    "count": 1
+  },
+  "packages/ui/src/theme/themes/catppuccin.json": {
+    "count": 1
+  },
+  "packages/ui/src/theme/themes/cobalt2.json": {
+    "count": 1
+  },
+  "packages/ui/src/theme/themes/cursor.json": {
+    "count": 1
+  },
+  "packages/ui/src/theme/themes/dracula.json": {
+    "count": 1
+  },
+  "packages/ui/src/theme/themes/everforest.json": {
+    "count": 1
+  },
+  "packages/ui/src/theme/themes/flexoki.json": {
+    "count": 1
+  },
+  "packages/ui/src/theme/themes/github.json": {
+    "count": 1
+  },
+  "packages/ui/src/theme/themes/gruvbox.json": {
+    "count": 1
+  },
+  "packages/ui/src/theme/themes/kanagawa.json": {
+    "count": 1
+  },
+  "packages/ui/src/theme/themes/lucent-orng.json": {
+    "count": 1
+  },
+  "packages/ui/src/theme/themes/material.json": {
+    "count": 1
+  },
+  "packages/ui/src/theme/themes/matrix.json": {
+    "count": 1
+  },
+  "packages/ui/src/theme/themes/mercury.json": {
+    "count": 1
+  },
+  "packages/ui/src/theme/themes/monokai.json": {
+    "count": 1
+  },
+  "packages/ui/src/theme/themes/nightowl.json": {
+    "count": 1
+  },
+  "packages/ui/src/theme/themes/nord.json": {
+    "count": 1
+  },
+  "packages/ui/src/theme/themes/oc-2.json": {
+    "count": 1
+  },
+  "packages/ui/src/theme/themes/one-dark.json": {
+    "count": 1
+  },
+  "packages/ui/src/theme/themes/onedarkpro.json": {
+    "count": 1
+  },
+  "packages/ui/src/theme/themes/opencode.json": {
+    "count": 1
+  },
+  "packages/ui/src/theme/themes/orng.json": {
+    "count": 1
+  },
+  "packages/ui/src/theme/themes/osaka-jade.json": {
+    "count": 1
+  },
+  "packages/ui/src/theme/themes/palenight.json": {
+    "count": 1
+  },
+  "packages/ui/src/theme/themes/rosepine.json": {
+    "count": 1
+  },
+  "packages/ui/src/theme/themes/shadesofpurple.json": {
+    "count": 1
+  },
+  "packages/ui/src/theme/themes/solarized.json": {
+    "count": 1
+  },
+  "packages/ui/src/theme/themes/synthwave84.json": {
+    "count": 1
+  },
+  "packages/ui/src/theme/themes/tokyonight.json": {
+    "count": 1
+  },
+  "packages/ui/src/theme/themes/vercel.json": {
+    "count": 1
+  },
+  "packages/ui/src/theme/themes/vesper.json": {
+    "count": 1
+  },
+  "packages/ui/src/theme/themes/zenburn.json": {
+    "count": 1
+  }
+}

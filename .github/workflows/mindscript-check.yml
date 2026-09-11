@@ -1,0 +1,24 @@
+name: mindscript-check
+
+# MindScript Studio guard rails: the branding must be fully applied and no new
+# references to upstream hosts may enter shipped code (see script/branding and
+# script/check-forbidden-strings.ts). Runs on every push and pull request to main.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+      - name: Branding is fully applied
+        run: bun script/branding/apply.ts --check
+      - name: No new upstream references
+        run: bun script/check-forbidden-strings.ts

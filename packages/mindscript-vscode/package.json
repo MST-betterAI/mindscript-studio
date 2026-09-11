@@ -51,13 +51,17 @@
       { "command": "mindscript.open", "title": "MindScript: Open Studio" },
       { "command": "mindscript.openInTab", "title": "MindScript: Open Studio in an Editor Tab" },
       { "command": "mindscript.newSession", "title": "MindScript: New Session" },
-      { "command": "mindscript.addToPrompt", "title": "MindScript: Copy File Reference for the Prompt" },
+      { "command": "mindscript.addToPrompt", "title": "MindScript: Add File / Selection to the Prompt" },
+      { "command": "mindscript.copyReference", "title": "MindScript: Copy File Reference" },
       { "command": "mindscript.restartServer", "title": "MindScript: Restart Server" },
       { "command": "mindscript.showStatus", "title": "MindScript: Show Status" }
     ],
     "menus": {
       "editor/title": [
         { "command": "mindscript.openInTab", "group": "navigation" }
+      ],
+      "editor/context": [
+        { "command": "mindscript.addToPrompt", "group": "mindscript@1" }
       ]
     },
     "keybindings": [

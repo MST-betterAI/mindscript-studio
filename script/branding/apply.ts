@@ -247,6 +247,23 @@ replace(`${DM}/windows.ts`, '    title: "OpenCode",\n', '    title: "MindScript 
 replace("packages/app/src/pages/layout/deep-links.ts", '  if (!input.startsWith("opencode://")) return\n', '  if (!input.startsWith("mindscript://") && !input.startsWith("opencode://")) return // mindscript_change\n')
 
 // ---------------------------------------------------------------------------
+// 4c. Links and fetches that would send people (or requests) to upstream
+// ---------------------------------------------------------------------------
+const REPO = "https://github.com/MST-betterAI/mindscript-studio"
+replace("packages/app/src/desktop-menu.ts", '{ type: "item", labelKey: "desktop.menu.documentation", href: "https://opencode.ai/docs" },', `{ type: "item", labelKey: "desktop.menu.documentation", href: "${REPO}#readme" }, // mindscript_change`)
+replace("packages/app/src/desktop-menu.ts", '{ type: "item", labelKey: "desktop.menu.supportForum", href: "https://discord.com/invite/opencode" },', `{ type: "item", labelKey: "desktop.menu.supportForum", href: "${REPO}/issues" }, // mindscript_change`)
+for (const f of ["packages/app/src/pages/layout.tsx", "packages/app/src/pages/error.tsx", "packages/app/src/pages/home/home-projects-controller.tsx"]) {
+  replace(f, 'platform.openExternal("https://opencode.ai/desktop-feedback")', `platform.openExternal("${REPO}/issues") /* mindscript_change */`)
+}
+// Desktop notifications showed the upstream favicon fetched from opencode.ai.
+replace("packages/app/src/entry.tsx", '    icon: "https://opencode.ai/favicon-96x96-v3.png",', '    icon: "/favicon-96x96-v3.png", // mindscript_change')
+replace("packages/desktop/src/renderer/index.tsx", '        icon: "https://opencode.ai/favicon-96x96-v3.png",', '        icon: "/favicon-96x96-v3.png", // mindscript_change')
+// Release highlights come from our own changelog (served from the public site once it exists;
+// a missing file just means no highlights dialog).
+replace("packages/app/src/context/highlights.tsx", 'const CHANGELOG_URL = "https://opencode.ai/changelog.json"', 'const CHANGELOG_URL = "https://mindscript.ai/studio/changelog.json" // mindscript_change')
+replace("packages/app/src/i18n/en.ts", '"error.page.report.discord": "on Discord",', '"error.page.report.discord": "on GitHub", // mindscript_change', { optional: true })
+
+// ---------------------------------------------------------------------------
 // 5. Web app + desktop renderer: title and user-facing strings
 // ---------------------------------------------------------------------------
 replace("packages/app/index.html", "<title>OpenCode</title>", "<title>MindScript Studio</title>")

@@ -279,8 +279,8 @@ export const DESKTOP_MENU: DesktopMenu[] = [
     id: "help",
     labelKey: "desktop.menu.help",
     items: [
-      { type: "item", labelKey: "desktop.menu.documentation", href: "https://opencode.ai/docs" },
-      { type: "item", labelKey: "desktop.menu.supportForum", href: "https://discord.com/invite/opencode" },
+      { type: "item", labelKey: "desktop.menu.documentation", href: "https://github.com/MST-betterAI/mindscript-studio#readme" }, // mindscript_change
+      { type: "item", labelKey: "desktop.menu.supportForum", href: "https://github.com/MST-betterAI/mindscript-studio/issues" }, // mindscript_change
       { type: "item", labelKey: "desktop.menu.exportLogs", command: "logs.export" },
       { type: "separator" },
       {

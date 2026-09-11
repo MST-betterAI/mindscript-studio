@@ -24,11 +24,34 @@ function appUrl(info: ServerInfo, directory: string, route = "/session"): string
   return `${info.url}/${dir}${route}?auth_token=${encodeURIComponent(token)}`
 }
 
+/** A message the extension pushes into the Studio UI (see packages/app: pages/session.tsx). */
+type PromptAddMessage = {
+  type: "mindscript.prompt.add"
+  path: string
+  selection?: { startLine: number; startChar: number; endLine: number; endChar: number }
+  preview?: string
+}
+
 function html(webview: vscode.Webview, src: string | undefined, error?: string): string {
   const origin = src ? new URL(src).origin : ""
-  const csp = `default-src 'none'; frame-src ${origin} http://127.0.0.1:* http://localhost:*; style-src 'unsafe-inline'; img-src ${webview.cspSource} data:;`
+  const nonce = Math.random().toString(36).slice(2) + Date.now().toString(36)
+  const csp = `default-src 'none'; frame-src ${origin} http://127.0.0.1:* http://localhost:*; style-src 'unsafe-inline'; script-src 'nonce-${nonce}'; img-src ${webview.cspSource} data:;`
+  // The host cannot post straight into a cross-origin iframe, so this page relays
+  // messages from the extension into the Studio frame. Messages queue until the
+  // Studio app reports it is listening ("mindscript.ready").
+  const relay = src
+    ? `<script nonce="${nonce}">(function(){
+  var frame = document.getElementById("studio"), origin = ${JSON.stringify(origin)}, ready = false, queue = [];
+  function flush(){ if(!ready||!frame||!frame.contentWindow) return; while(queue.length) frame.contentWindow.postMessage(queue.shift(), origin); }
+  window.addEventListener("message", function(e){
+    var m = e.data;
+    if (frame && e.source === frame.contentWindow) { if (m && m.type === "mindscript.ready") { ready = true; flush(); } return; }
+    if (m && m.type === "mindscript.prompt.add") { queue.push(m); flush(); }
+  });
+})();</script>`
+    : ""
   const body = src
-    ? `<iframe id="studio" src="${src}" allow="clipboard-read; clipboard-write"></iframe>`
+    ? `<iframe id="studio" src="${src}" allow="clipboard-read; clipboard-write"></iframe>${relay}`
     : `<div class="msg"><h3>MindScript Studio</h3><p>${error ?? "Starting…"}</p><p>Open the <b>MindScript</b> output channel for details.</p></div>`
   return `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="${csp}">
 <style>html,body{margin:0;padding:0;height:100%;overflow:hidden;background:var(--vscode-editor-background)}
@@ -46,6 +69,19 @@ class StudioViewProvider implements vscode.WebviewViewProvider {
     view.webview.options = { enableScripts: true, localResourceRoots: [this.context.extensionUri] }
     await this.render()
     view.onDidDispose(() => (this.view = undefined))
+  }
+
+  /** Push a message into the sidebar's Studio UI; false when the view is not open yet. */
+  async post(message: PromptAddMessage): Promise<boolean> {
+    if (!this.view) return false
+    return this.view.webview.postMessage(message)
+  }
+
+  /** Resolve once the sidebar view exists (it is created lazily by VS Code after focus). */
+  async waitForView(ms: number): Promise<boolean> {
+    const until = Date.now() + ms
+    while (!this.view && Date.now() < until) await new Promise((r) => setTimeout(r, 100))
+    return Boolean(this.view)
   }
 
   async render(route = "/session"): Promise<void> {
@@ -99,6 +135,25 @@ function fileReference(): string | undefined {
   return a === b ? `@${rel}#L${a}` : `@${rel}#L${a}-${b}`
 }
 
+/** The active file (and selected lines, 1-based like the Studio UI) as a prompt attachment. */
+function promptAttachment(): PromptAddMessage | undefined {
+  const editor = vscode.window.activeTextEditor
+  if (!editor || editor.document.uri.scheme !== "file") return
+  const directory = workspaceDirectory()
+  const rel = directory ? path.relative(directory, editor.document.uri.fsPath) : editor.document.uri.fsPath
+  const sel = editor.selection
+  if (sel.isEmpty) return { type: "mindscript.prompt.add", path: rel }
+  const startLine = sel.start.line + 1
+  const endLine = sel.end.line + 1
+  const text = editor.document.getText(new vscode.Range(sel.start.line, 0, sel.end.line, Number.MAX_SAFE_INTEGER))
+  return {
+    type: "mindscript.prompt.add",
+    path: rel,
+    selection: { startLine, startChar: 0, endLine, endChar: 0 },
+    preview: text.split("\n").slice(0, 2).join("\n"),
+  }
+}
+
 export function activate(context: vscode.ExtensionContext): void {
   out = vscode.window.createOutputChannel("MindScript")
   manager = new ServerManager(out)
@@ -124,14 +179,30 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand("mindscript.openInTab", () => openInTab(context)),
     vscode.commands.registerCommand("mindscript.newSession", () => provider.render("/session")),
     vscode.commands.registerCommand("mindscript.addToPrompt", async () => {
+      const attachment = promptAttachment()
+      const ref = fileReference()
+      if (!attachment || !ref) {
+        void vscode.window.showInformationMessage("MindScript: no active file to add.")
+        return
+      }
+      await vscode.commands.executeCommand("mindscript.chat.focus")
+      const delivered = (await provider.waitForView(3000)) && (await provider.post(attachment))
+      if (delivered) {
+        void vscode.window.setStatusBarMessage(`MindScript: added ${ref} to the prompt`, 3000)
+        return
+      }
+      // The panel is not available (e.g. still starting): leave the reference on the clipboard.
+      await vscode.env.clipboard.writeText(ref)
+      void vscode.window.setStatusBarMessage(`MindScript: copied ${ref} — paste it into the prompt`, 4000)
+    }),
+    vscode.commands.registerCommand("mindscript.copyReference", async () => {
       const ref = fileReference()
       if (!ref) {
         void vscode.window.showInformationMessage("MindScript: no active editor to reference.")
         return
       }
       await vscode.env.clipboard.writeText(ref)
-      void vscode.window.setStatusBarMessage(`MindScript: copied ${ref} — paste it into the prompt`, 4000)
-      await vscode.commands.executeCommand("mindscript.chat.focus")
+      void vscode.window.setStatusBarMessage(`MindScript: copied ${ref}`, 3000)
     }),
     vscode.commands.registerCommand("mindscript.restartServer", async () => {
       await manager!.stop()
