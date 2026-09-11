@@ -1,0 +1,101 @@
+{
+  "name": "mindscript-studio",
+  "displayName": "MindScript Studio",
+  "description": "MindScript Studio inside VS Code: a coding agent chat panel powered by the MindScript engine (smarter, faster, cheaper model routing).",
+  "version": "0.1.0",
+  "publisher": "mindscript-ai",
+  "private": true,
+  "license": "MIT",
+  "icon": "media/icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/MST-betterAI/mindscript-studio"
+  },
+  "galleryBanner": {
+    "color": "#0b0b12",
+    "theme": "dark"
+  },
+  "engines": {
+    "vscode": "^1.94.0"
+  },
+  "categories": [
+    "AI",
+    "Programming Languages",
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "mindscript",
+          "title": "MindScript",
+          "icon": "media/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "mindscript": [
+        {
+          "type": "webview",
+          "id": "mindscript.chat",
+          "name": "Studio",
+          "retainContextWhenHidden": true
+        }
+      ]
+    },
+    "commands": [
+      { "command": "mindscript.open", "title": "MindScript: Open Studio" },
+      { "command": "mindscript.openInTab", "title": "MindScript: Open Studio in an Editor Tab" },
+      { "command": "mindscript.newSession", "title": "MindScript: New Session" },
+      { "command": "mindscript.addToPrompt", "title": "MindScript: Copy File Reference for the Prompt" },
+      { "command": "mindscript.restartServer", "title": "MindScript: Restart Server" },
+      { "command": "mindscript.showStatus", "title": "MindScript: Show Status" }
+    ],
+    "menus": {
+      "editor/title": [
+        { "command": "mindscript.openInTab", "group": "navigation" }
+      ]
+    },
+    "keybindings": [
+      { "command": "mindscript.open", "key": "cmd+escape", "mac": "cmd+escape", "win": "ctrl+escape", "linux": "ctrl+escape" },
+      { "command": "mindscript.addToPrompt", "key": "cmd+alt+k", "mac": "cmd+alt+k", "win": "ctrl+alt+k", "linux": "ctrl+alt+k" }
+    ],
+    "configuration": {
+      "title": "MindScript Studio",
+      "properties": {
+        "mindscript.cliPath": {
+          "type": "string",
+          "default": "",
+          "description": "Path to the `mindscript` binary. Empty = look on PATH, then ~/.opencode/bin, then /usr/local/bin."
+        },
+        "mindscript.baseUrl": {
+          "type": "string",
+          "default": "",
+          "description": "MindScript gateway URL (MINDSCRIPT_BASE_URL), e.g. http://127.0.0.1:8787/v1. Empty = the binary's default."
+        },
+        "mindscript.port": {
+          "type": "number",
+          "default": 0,
+          "description": "Fixed server port. 0 = a stable port derived from the workspace path (keeps the panel's settings across restarts)."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "node esbuild.js",
+    "package": "node esbuild.js --production",
+    "check-types": "tsc --noEmit",
+    "vsix": "node esbuild.js --production && vsce package --no-dependencies"
+  },
+  "devDependencies": {
+    "@types/node": "20.x",
+    "@types/vscode": "^1.94.0",
+    "@vscode/vsce": "^3.2.1",
+    "esbuild": "^0.25.3",
+    "typescript": "^5.8.3"
+  }
+}
