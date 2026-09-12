@@ -225,5 +225,8 @@ export function activate(context: vscode.ExtensionContext): void {
 }
 
 export async function deactivate(): Promise<void> {
-  await manager?.stop()
+  // mindscript_change: detach, don't kill — the server may be shared with another window, a
+  // browser tab, or the desktop app (docs/conversation-continuity.md). Closing this window must
+  // not end work someone else is watching. "MindScript: Restart Server" still does a real stop.
+  await manager?.detach()
 }
