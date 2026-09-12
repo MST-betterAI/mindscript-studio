@@ -87,6 +87,37 @@ function formatRunError(error: unknown) {
   return FormatError(error) ?? FormatUnknownError(error)
 }
 
+// mindscript_change: the request that starts a turn (session.prompt / session.command) can hang
+// indefinitely with zero visible output if the connection to the server stalls before anything
+// streams back (seen intermittently; not yet root-caused, tracked separately). Rather than sit
+// silently, surface a "still working" status on a fixed cadence and give up with a clear, actionable
+// error after a hard ceiling instead of hanging forever. Both are configurable so long real tasks
+// and slow models are not mistaken for a stall.
+const STATUS_INTERVAL_MS = Number(process.env["MINDSCRIPT_STATUS_INTERVAL_MS"]) || 10_000
+const REQUEST_TIMEOUT_MS = Number(process.env["MINDSCRIPT_REQUEST_TIMEOUT_MS"]) || 90_000
+
+type StartRequestResult<T> = { ok: true; value: T } | { ok: false; timedOut: true }
+
+async function startRequestWithStatus<T>(
+  send: () => Promise<T>,
+  onStatus: (elapsedMs: number) => void,
+): Promise<StartRequestResult<T>> {
+  const started = Date.now()
+  let settled = false
+  const ticker = setInterval(() => {
+    if (!settled) onStatus(Date.now() - started)
+  }, STATUS_INTERVAL_MS)
+  const timeout = new Promise<StartRequestResult<T>>((resolve) => {
+    setTimeout(() => resolve({ ok: false, timedOut: true }), REQUEST_TIMEOUT_MS)
+  })
+  try {
+    return await Promise.race([send().then((value): StartRequestResult<T> => ({ ok: true, value })), timeout])
+  } finally {
+    settled = true
+    clearInterval(ticker)
+  }
+}
+
 async function tool(part: ToolPart) {
   try {
     const { toolInlineInfo } = await import("./run/tool")
@@ -842,17 +873,48 @@ export const RunCommand = effectCmd({
             if (error) process.exitCode = 1
           }
 
+          // mindscript_change: visible "still working" status + a hard timeout instead of hanging
+          // silently (see startRequestWithStatus above). Applies to whichever request actually
+          // starts the turn — the slash-command path or the plain prompt path, whichever runs.
+          function reportStatus(elapsedMs: number) {
+            const seconds = Math.round(elapsedMs / 1000)
+            if (emit("status", { message: "still waiting for a response", elapsedMs })) return
+            const line = `${UI.Style.TEXT_DIM}...still working (${seconds}s)${UI.Style.TEXT_NORMAL}`
+            if (process.stdout.isTTY) {
+              UI.println(line)
+            } else {
+              process.stderr.write(`...still working (${seconds}s)${EOL}`)
+            }
+          }
+          function reportTimeout() {
+            const seconds = Math.round(REQUEST_TIMEOUT_MS / 1000)
+            const message = `no response after ${seconds}s — the server may have lost its connection; try again, or run with MINDSCRIPT_REQUEST_TIMEOUT_MS set higher for a genuinely long task`
+            if (!emit("error", { error: { name: "RequestTimeoutError", message } })) UI.error(message)
+            // The request that never resolved (and the still-open event subscription) would
+            // otherwise keep this process alive indefinitely with nothing left to report —
+            // a hard exit is the actual "recovery": control returns to whatever ran this command.
+            process.exit(1)
+          }
+
           if (args.command) {
-            const result = await client.session.command({
-              sessionID,
-              agent,
-              model: args.model,
-              command: args.command,
-              arguments: message,
-              variant: args.variant,
-            })
-            if (result.error) {
-              if (!emit("error", { error: result.error })) UI.error(formatRunError(result.error))
+            const started = await startRequestWithStatus(
+              () =>
+                client.session.command({
+                  sessionID,
+                  agent,
+                  model: args.model,
+                  command: args.command,
+                  arguments: message,
+                  variant: args.variant,
+                }),
+              reportStatus,
+            )
+            if (!started.ok) {
+              reportTimeout()
+              return
+            }
+            if (started.value.error) {
+              if (!emit("error", { error: started.value.error })) UI.error(formatRunError(started.value.error))
               process.exitCode = 1
               return
             }
@@ -861,15 +923,23 @@ export const RunCommand = effectCmd({
           }
 
           const model = pick(args.model)
-          const result = await client.session.prompt({
-            sessionID,
-            agent,
-            model,
-            variant: args.variant,
-            parts: [...files, { type: "text", text: message }],
-          })
-          if (result.error) {
-            if (!emit("error", { error: result.error })) UI.error(formatRunError(result.error))
+          const started = await startRequestWithStatus(
+            () =>
+              client.session.prompt({
+                sessionID,
+                agent,
+                model,
+                variant: args.variant,
+                parts: [...files, { type: "text", text: message }],
+              }),
+            reportStatus,
+          )
+          if (!started.ok) {
+            reportTimeout()
+            return
+          }
+          if (started.value.error) {
+            if (!emit("error", { error: started.value.error })) UI.error(formatRunError(started.value.error))
             process.exitCode = 1
             return
           }
