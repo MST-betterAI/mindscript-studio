@@ -139,6 +139,56 @@ async function checkHealth(url: string, username: string, password: string): Pro
   }
 }
 
+// --- Interprocess claim around "decide to spawn, spawn, register" --------------------------
+// mindscript_change: without this, two processes racing to start a server for the SAME
+// directory (two VS Code windows opened together, or a window plus a terminal `mindscript
+// serve`) can each see no healthy registry entry and each spawn their own server — two
+// disconnected sessions instead of the one shared one continuity depends on (Bob's review:
+// "start() reads the registry, awaits spawning/health, then writes it without an interprocess
+// claim"). A plain lock FILE (not a daemon) is enough: `wx` open is atomic-exclusive-create
+// across processes on the same machine. No separate timeout — staleness alone bounds the wait,
+// so a crashed holder can't wedge this forever, and a live one is simply waited out.
+const LOCK_STALE_MS = 90_000
+const LOCK_POLL_MS = 250
+
+function lockPath(directory: string): string {
+  return `${registryPath(directory)}.lock`
+}
+
+async function acquireStartLock(directory: string): Promise<() => void> {
+  const lp = lockPath(directory)
+  for (;;) {
+    try {
+      fs.mkdirSync(path.dirname(lp), { recursive: true })
+      const fd = fs.openSync(lp, "wx")
+      fs.writeSync(fd, String(process.pid))
+      fs.closeSync(fd)
+      return () => {
+        try {
+          fs.unlinkSync(lp)
+        } catch {
+          /* already gone */
+        }
+      }
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code !== "EEXIST") throw e
+      try {
+        if (Date.now() - fs.statSync(lp).mtimeMs > LOCK_STALE_MS) {
+          try {
+            fs.unlinkSync(lp) // stale: its holder crashed without releasing — reclaim it
+          } catch {
+            /* raced with the real holder releasing it just now — fine, loop and retry */
+          }
+          continue
+        }
+      } catch {
+        continue // lock vanished between our failed open and this stat — retry immediately
+      }
+      await new Promise((r) => setTimeout(r, LOCK_POLL_MS))
+    }
+  }
+}
+
 export class ServerManager {
   private child?: ChildProcess // set only when WE spawned the current server (we own its lifecycle)
   private info?: ServerInfo
@@ -188,110 +238,128 @@ export class ServerManager {
     return 0
   }
 
-  private async start(directory: string): Promise<ServerInfo> {
-    await this.stop()
-
-    // Attach first: if another process already registered a healthy server for this exact
-    // directory, use it instead of spawning a redundant one (same-computer continuity's
-    // precondition — two surfaces on one server means one session, one live event stream).
+  /** Lock-free: multiple processes reading + health-checking the registry concurrently is
+   *  harmless (no shared mutation) — only the decide-to-spawn-and-register step below needs
+   *  exclusivity. Returns undefined if there's nothing healthy to attach to. */
+  private async tryAttach(directory: string): Promise<ServerInfo | undefined> {
     const existing = readRegistry(directory)
-    if (existing && (await checkHealth(existing.url, existing.username, existing.password))) {
-      this.out.appendLine(`[server] attaching to existing server for ${directory} (pid ${existing.pid}, ${existing.url})`)
-      const info: ServerInfo = {
-        url: existing.url,
-        port: existing.port,
-        username: existing.username,
-        password: existing.password,
-        directory,
-        pid: existing.pid,
-      }
-      this.info = info
-      this.restarts = 0
-      this.emit()
-      return info
+    if (!existing || !(await checkHealth(existing.url, existing.username, existing.password))) return undefined
+    this.out.appendLine(`[server] attaching to existing server for ${directory} (pid ${existing.pid}, ${existing.url})`)
+    const info: ServerInfo = {
+      url: existing.url,
+      port: existing.port,
+      username: existing.username,
+      password: existing.password,
+      directory,
+      pid: existing.pid,
     }
-
-    const bin = findBinary()
-    if (!bin) {
-      throw new Error("The `mindscript` binary was not found. Set mindscript.cliPath in Settings, or install MindScript Studio.")
-    }
-    const password = randomBytes(24).toString("hex")
-    const port = await this.pickPort(directory)
-    const baseUrl = config<string>("baseUrl", "").trim()
-    const env: NodeJS.ProcessEnv = {
-      ...process.env,
-      OPENCODE_SERVER_PASSWORD: password,
-      MINDSCRIPT_SERVER_PASSWORD: password,
-      OPENCODE_SERVER_USERNAME: USERNAME,
-      OPENCODE_CLIENT: "vscode",
-      MINDSCRIPT_CLIENT: "vscode",
-      ...(baseUrl ? { MINDSCRIPT_BASE_URL: baseUrl } : {}),
-    }
-    this.out.appendLine(`[server] starting ${bin} serve --port ${port} in ${directory}`)
-    const child = spawn(bin, ["serve", "--hostname", "127.0.0.1", "--port", String(port)], {
-      cwd: directory,
-      env,
-      detached: process.platform !== "win32",
-      stdio: ["ignore", "pipe", "pipe"],
-    })
-    this.child = child
-    this.stopping = false
-
-    const url = await new Promise<string>((resolve, reject) => {
-      let buf = ""
-      const timer = setTimeout(() => reject(new Error(`server did not report a port within 60 s\n${buf.slice(-600)}`)), 60_000)
-      const onData = (d: Buffer) => {
-        const text = String(d)
-        buf += text
-        for (const line of text.split(/\r?\n/)) if (line.trim()) this.out.appendLine(`[server] ${line}`)
-        const m = buf.match(/listening on (http:\/\/[^\s]+)/)
-        if (m) {
-          clearTimeout(timer)
-          resolve(m[1])
-        }
-      }
-      child.stdout?.on("data", onData)
-      child.stderr?.on("data", onData)
-      child.once("exit", (code) => {
-        clearTimeout(timer)
-        reject(new Error(`server exited with code ${code}\n${buf.slice(-600)}`))
-      })
-    })
-
-    const actualPort = Number(new URL(url).port)
-    const info: ServerInfo = { url, port: actualPort, username: USERNAME, password, directory, pid: child.pid ?? -1 }
-    await this.waitHealthy(info)
     this.info = info
     this.restarts = 0
     this.emit()
-
-    const now = new Date().toISOString()
-    writeRegistry({ directory, url, port: actualPort, username: USERNAME, password, pid: info.pid, startedAt: now, updatedAt: now })
-    // Refresh the registry's updatedAt periodically: a future cleanup pass (not built yet) can
-    // use staleness to decide an entry is abandoned, without needing this process to still exist.
-    this.leaseTimer = setInterval(() => {
-      writeRegistry({ directory, url, port: actualPort, username: USERNAME, password, pid: info.pid, startedAt: now, updatedAt: new Date().toISOString() })
-    }, 20_000)
-
-    child.on("exit", (code) => {
-      this.out.appendLine(`[server] exited (${code})`)
-      clearInterval(this.leaseTimer)
-      clearRegistryIfOwned(directory, info.pid)
-      if (this.child === child) {
-        this.child = undefined
-        this.info = undefined
-        this.emit()
-      }
-      if (this.stopping) return
-      if (this.restarts >= 3) {
-        void vscode.window.showErrorMessage("MindScript Studio's server keeps exiting. See the MindScript output channel.")
-        return
-      }
-      const delay = 1000 * 2 ** this.restarts++
-      this.out.appendLine(`[server] restarting in ${delay} ms`)
-      setTimeout(() => void this.ensure(directory).catch((e) => this.out.appendLine(`[server] restart failed: ${e}`)), delay)
-    })
     return info
+  }
+
+  private async start(directory: string): Promise<ServerInfo> {
+    await this.stop()
+
+    // Attach first, lock-free, before even considering a spawn — same-computer continuity's
+    // precondition (two surfaces on one server means one session, one live event stream).
+    const attached = await this.tryAttach(directory)
+    if (attached) return attached
+
+    // mindscript_change: from here on, only ONE process for this directory may decide to
+    // spawn — see acquireStartLock's comment for why.
+    const release = await acquireStartLock(directory)
+    try {
+      // Whoever held the lock before us may have just finished spawning; check again before
+      // committing to spawn our own.
+      const attachedAfterWait = await this.tryAttach(directory)
+      if (attachedAfterWait) return attachedAfterWait
+
+      const bin = findBinary()
+      if (!bin) {
+        throw new Error("The `mindscript` binary was not found. Set mindscript.cliPath in Settings, or install MindScript Studio.")
+      }
+      const password = randomBytes(24).toString("hex")
+      const port = await this.pickPort(directory)
+      const baseUrl = config<string>("baseUrl", "").trim()
+      const env: NodeJS.ProcessEnv = {
+        ...process.env,
+        OPENCODE_SERVER_PASSWORD: password,
+        MINDSCRIPT_SERVER_PASSWORD: password,
+        OPENCODE_SERVER_USERNAME: USERNAME,
+        OPENCODE_CLIENT: "vscode",
+        MINDSCRIPT_CLIENT: "vscode",
+        ...(baseUrl ? { MINDSCRIPT_BASE_URL: baseUrl } : {}),
+      }
+      this.out.appendLine(`[server] starting ${bin} serve --port ${port} in ${directory}`)
+      const child = spawn(bin, ["serve", "--hostname", "127.0.0.1", "--port", String(port)], {
+        cwd: directory,
+        env,
+        detached: process.platform !== "win32",
+        stdio: ["ignore", "pipe", "pipe"],
+      })
+      this.child = child
+      this.stopping = false
+
+      const url = await new Promise<string>((resolve, reject) => {
+        let buf = ""
+        const timer = setTimeout(() => reject(new Error(`server did not report a port within 60 s\n${buf.slice(-600)}`)), 60_000)
+        const onData = (d: Buffer) => {
+          const text = String(d)
+          buf += text
+          for (const line of text.split(/\r?\n/)) if (line.trim()) this.out.appendLine(`[server] ${line}`)
+          const m = buf.match(/listening on (http:\/\/[^\s]+)/)
+          if (m) {
+            clearTimeout(timer)
+            resolve(m[1])
+          }
+        }
+        child.stdout?.on("data", onData)
+        child.stderr?.on("data", onData)
+        child.once("exit", (code) => {
+          clearTimeout(timer)
+          reject(new Error(`server exited with code ${code}\n${buf.slice(-600)}`))
+        })
+      })
+
+      const actualPort = Number(new URL(url).port)
+      const info: ServerInfo = { url, port: actualPort, username: USERNAME, password, directory, pid: child.pid ?? -1 }
+      await this.waitHealthy(info)
+      this.info = info
+      this.restarts = 0
+      this.emit()
+
+      const now = new Date().toISOString()
+      writeRegistry({ directory, url, port: actualPort, username: USERNAME, password, pid: info.pid, startedAt: now, updatedAt: now })
+      // Refresh the registry's updatedAt periodically: a future cleanup pass (not built yet) can
+      // use staleness to decide an entry is abandoned, without needing this process to still exist.
+      this.leaseTimer = setInterval(() => {
+        writeRegistry({ directory, url, port: actualPort, username: USERNAME, password, pid: info.pid, startedAt: now, updatedAt: new Date().toISOString() })
+      }, 20_000)
+
+      child.on("exit", (code) => {
+        this.out.appendLine(`[server] exited (${code})`)
+        clearInterval(this.leaseTimer)
+        clearRegistryIfOwned(directory, info.pid)
+        if (this.child === child) {
+          this.child = undefined
+          this.info = undefined
+          this.emit()
+        }
+        if (this.stopping) return
+        if (this.restarts >= 3) {
+          void vscode.window.showErrorMessage("MindScript Studio's server keeps exiting. See the MindScript output channel.")
+          return
+        }
+        const delay = 1000 * 2 ** this.restarts++
+        this.out.appendLine(`[server] restarting in ${delay} ms`)
+        setTimeout(() => void this.ensure(directory).catch((e) => this.out.appendLine(`[server] restart failed: ${e}`)), delay)
+      })
+      return info
+    } finally {
+      release()
+    }
   }
 
   private async waitHealthy(info: ServerInfo): Promise<void> {

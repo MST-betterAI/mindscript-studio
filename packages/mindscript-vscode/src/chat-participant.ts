@@ -57,6 +57,19 @@ async function createSession(info: ServerInfo): Promise<string> {
   return data.id
 }
 
+// mindscript_change: Stop and the idle timeout must reach the backend, not just abort our
+// own HTTP/SSE reader — otherwise a cancelled or stalled turn keeps running (and billing)
+// server-side. Bob's native-chat check caught this ("Stop interrupts backend execution",
+// "Idle timeout interrupts backend execution" both failed before this). Best-effort: the
+// client-side abort already stops us consuming output either way.
+async function abortBackend(info: ServerInfo, sessionID: string): Promise<void> {
+  try {
+    await api(info, `/session/${sessionID}/abort`, { method: "POST" })
+  } catch {
+    // ignore — nothing more we can do from here
+  }
+}
+
 function partText(part: unknown): string | undefined {
   if (!part || typeof part !== "object") return undefined
   const p = part as { type?: unknown; text?: unknown }
@@ -78,13 +91,6 @@ async function streamTurn(
   token: vscode.CancellationToken,
 ): Promise<void> {
   const abort = new AbortController()
-  token.onCancellationRequested(() => abort.abort())
-
-  const eventsRes = await fetch(`${info.url}/event`, { headers: { authorization: authHeader(info) }, signal: abort.signal })
-  if (!eventsRes.ok || !eventsRes.body) throw new Error(`could not open the event stream (${eventsRes.status})`)
-  const reader = eventsRes.body.getReader()
-  const decoder = new TextDecoder()
-
   let settled = false
   let sawAnyEvent = false
   // mindscript_change: idle-time watchdog, not a flat deadline (same fix as ai-gateway's
@@ -93,8 +99,18 @@ async function streamTurn(
   // belongs to this session; the timer below checks elapsed-since-THAT, re-arming itself against
   // the remaining idle budget rather than firing on a fixed schedule from call start.
   let lastActivityAt = Date.now()
+  let reader: ReadableStreamDefaultReader<Uint8Array> | undefined
   const emittedLen = new Map<string, number>()
   const seenTools = new Set<string>()
+
+  // mindscript_change: dispose this on the way out (see finally below) — otherwise every
+  // turn leaks one subscription for the life of the chat tab (Bob's check: "Completed turn
+  // disposes cancellation subscription").
+  const cancelSub = token.onCancellationRequested(() => {
+    settled = true
+    abort.abort()
+    void abortBackend(info, sessionID)
+  })
 
   const statusTimer = setInterval(() => {
     if (!settled) out.progress(sawAnyEvent ? "MindScript is working…" : "MindScript is starting…")
@@ -107,69 +123,79 @@ async function streamTurn(
       if (idleMs >= IDLE_TIMEOUT_MS) {
         settled = true
         abort.abort()
+        void abortBackend(info, sessionID)
         return
       }
       idleTimeoutHandle = setTimeout(check, IDLE_TIMEOUT_MS - idleMs)
     }
     idleTimeoutHandle = setTimeout(check, IDLE_TIMEOUT_MS)
   }
+  // mindscript_change: arm BEFORE opening the event stream, so a connection attempt that
+  // never resolves (server hung, network stall) is bounded by the same mechanism instead of
+  // hanging forever (Bob's check: "Event-stream startup has a finite timeout" — the `fetch`
+  // below carries `abort.signal`, so the idle timer firing rejects it same as mid-stream silence).
   armIdleTimeout()
 
-  const done = (async () => {
-    let buf = ""
-    while (!settled) {
-      const { value, done: streamDone } = await reader.read()
-      if (streamDone) break
-      buf += decoder.decode(value, { stream: true })
-      let idx: number
-      while ((idx = buf.indexOf("\n\n")) >= 0) {
-        const chunk = buf.slice(0, idx)
-        buf = buf.slice(idx + 2)
-        const line = chunk.split("\n").find((l) => l.startsWith("data: "))
-        if (!line) continue
-        let evt: SessionEvent
-        try {
-          evt = JSON.parse(line.slice("data: ".length))
-        } catch {
-          continue
-        }
-        const props = evt.properties ?? {}
-        const evtSessionID = (props as { sessionID?: string; info?: { sessionID?: string } }).sessionID
-        if (evtSessionID !== undefined && evtSessionID !== sessionID) continue
-        if (evtSessionID === sessionID) lastActivityAt = Date.now()
+  try {
+    const eventsRes = await fetch(`${info.url}/event`, { headers: { authorization: authHeader(info) }, signal: abort.signal })
+    if (!eventsRes.ok || !eventsRes.body) throw new Error(`could not open the event stream (${eventsRes.status})`)
+    reader = eventsRes.body.getReader()
+    const decoder = new TextDecoder()
 
-        if (evt.type === "message.part.updated") {
-          sawAnyEvent = true
-          const part = (props as { part?: unknown }).part
-          const partId = (part as { id?: string } | undefined)?.id
-          const text = partText(part)
-          if (text !== undefined && partId) {
-            const already = emittedLen.get(partId) ?? 0
-            if (text.length > already) {
-              out.markdown(text.slice(already))
-              emittedLen.set(partId, text.length)
+    const done = (async () => {
+      let buf = ""
+      while (!settled) {
+        const { value, done: streamDone } = await reader!.read()
+        if (streamDone) break
+        buf += decoder.decode(value, { stream: true })
+        let idx: number
+        while ((idx = buf.indexOf("\n\n")) >= 0) {
+          const chunk = buf.slice(0, idx)
+          buf = buf.slice(idx + 2)
+          const line = chunk.split("\n").find((l) => l.startsWith("data: "))
+          if (!line) continue
+          let evt: SessionEvent
+          try {
+            evt = JSON.parse(line.slice("data: ".length))
+          } catch {
+            continue
+          }
+          const props = evt.properties ?? {}
+          const evtSessionID = (props as { sessionID?: string; info?: { sessionID?: string } }).sessionID
+          if (evtSessionID !== undefined && evtSessionID !== sessionID) continue
+          if (evtSessionID === sessionID) lastActivityAt = Date.now()
+
+          if (evt.type === "message.part.updated") {
+            sawAnyEvent = true
+            const part = (props as { part?: unknown }).part
+            const partId = (part as { id?: string } | undefined)?.id
+            const text = partText(part)
+            if (text !== undefined && partId) {
+              const already = emittedLen.get(partId) ?? 0
+              if (text.length > already) {
+                out.markdown(text.slice(already))
+                emittedLen.set(partId, text.length)
+              }
+            }
+            const tool = partToolName(part)
+            if (tool && !seenTools.has(String(partId))) {
+              seenTools.add(String(partId))
+              out.progress(`Using ${tool}…`)
             }
           }
-          const tool = partToolName(part)
-          if (tool && !seenTools.has(String(partId))) {
-            seenTools.add(String(partId))
-            out.progress(`Using ${tool}…`)
+          if (evt.type === "session.error") {
+            const err = (props as { error?: { name?: string; data?: { message?: string } } }).error
+            const message = err?.data?.message ?? err?.name ?? "unknown error"
+            out.markdown(`\n\n⚠️ ${message}`)
+          }
+          if (evt.type === "session.idle" || (evt.type === "session.status" && (props as { status?: { type?: string } }).status?.type === "idle")) {
+            settled = true
+            return
           }
         }
-        if (evt.type === "session.error") {
-          const err = (props as { error?: { name?: string; data?: { message?: string } } }).error
-          const message = err?.data?.message ?? err?.name ?? "unknown error"
-          out.markdown(`\n\n⚠️ ${message}`)
-        }
-        if (evt.type === "session.idle" || (evt.type === "session.status" && (props as { status?: { type?: string } }).status?.type === "idle")) {
-          settled = true
-          return
-        }
       }
-    }
-  })()
+    })()
 
-  try {
     const send = await api(info, `/session/${sessionID}/prompt_async`, {
       method: "POST",
       body: JSON.stringify({ parts: [{ type: "text", text: prompt }] }),
@@ -178,10 +204,12 @@ async function streamTurn(
     if (!send.ok) throw new Error(`the request was refused (${send.status})`)
     await done
   } finally {
+    settled = true
     clearInterval(statusTimer)
     clearTimeout(idleTimeoutHandle)
     abort.abort()
-    reader.cancel().catch(() => {})
+    reader?.cancel().catch(() => {})
+    cancelSub.dispose()
   }
 
   if (!sawAnyEvent && !token.isCancellationRequested) {
