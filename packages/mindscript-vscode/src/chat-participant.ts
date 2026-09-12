@@ -12,7 +12,8 @@ import * as vscode from "vscode"
 import type { ServerManager, ServerInfo } from "./server"
 
 const STATUS_AFTER_MS = 8_000
-const HARD_TIMEOUT_MS = 90_000
+const IDLE_TIMEOUT_MS = 90_000
+const PARTICIPANT_ID = "mindscript.participant"
 
 type SessionEvent = { type: string; properties?: Record<string, unknown> }
 
@@ -27,18 +28,32 @@ async function api(info: ServerInfo, path: string, init?: RequestInit): Promise<
   })
 }
 
-/** One session per workspace directory, reused across chat turns so context/memory persist —
- * separate from the sidebar panel's own session, so the two entry points never collide. */
-const sessionByDirectory = new Map<string, string>()
+// --- Session identity: one MindScript session per VS Code chat TAB, not per workspace ---------
+// docs/conversation-continuity.md: "do not key conversations solely by workspace directory."
+// VS Code's chat participant API has no exposed per-tab id, but a participant's ChatResult can
+// carry arbitrary `metadata`, and that metadata comes back on the NEXT turn via
+// `context.history` (each ChatResponseTurn keeps the `result` it returned). Stashing our session
+// ID there means: a fresh chat tab (empty history) gets a fresh MindScript session; continuing
+// an existing tab reuses the same one; VS Code's own "New Chat" / tab-switching becomes the
+// new/resume UI for free, and — since VS Code persists chat history across window reloads — the
+// mapping survives a reload too, without a separate persisted store of our own.
 
-async function ensureSession(info: ServerInfo, directory: string): Promise<string> {
-  const existing = sessionByDirectory.get(directory)
-  if (existing) return existing
+function sessionIdFromHistory(history: vscode.ChatContext["history"]): string | undefined {
+  for (let i = history.length - 1; i >= 0; i--) {
+    const turn = history[i]
+    if (!(turn instanceof vscode.ChatResponseTurn)) continue
+    if (turn.participant !== PARTICIPANT_ID) continue
+    const meta = turn.result.metadata as { sessionID?: unknown } | undefined
+    if (typeof meta?.sessionID === "string" && meta.sessionID) return meta.sessionID
+  }
+  return undefined
+}
+
+async function createSession(info: ServerInfo): Promise<string> {
   const res = await api(info, "/session", { method: "POST", body: JSON.stringify({ title: "VS Code chat" }) })
   if (!res.ok) throw new Error(`could not start a session (${res.status})`)
   const data = (await res.json()) as { id?: string }
   if (!data.id) throw new Error("session response had no id")
-  sessionByDirectory.set(directory, data.id)
   return data.id
 }
 
@@ -72,17 +87,33 @@ async function streamTurn(
 
   let settled = false
   let sawAnyEvent = false
+  // mindscript_change: idle-time watchdog, not a flat deadline (same fix as ai-gateway's
+  // run.ts, same reason: a healthy turn that runs past 90s while genuinely working must not be
+  // cut off — only real silence should trip this). `lastActivityAt` is bumped by any event that
+  // belongs to this session; the timer below checks elapsed-since-THAT, re-arming itself against
+  // the remaining idle budget rather than firing on a fixed schedule from call start.
+  let lastActivityAt = Date.now()
   const emittedLen = new Map<string, number>()
   const seenTools = new Set<string>()
 
   const statusTimer = setInterval(() => {
-    if (!settled && !sawAnyEvent) out.progress("MindScript is starting…")
+    if (!settled) out.progress(sawAnyEvent ? "MindScript is working…" : "MindScript is starting…")
   }, STATUS_AFTER_MS)
-  const hardTimeout = setTimeout(() => {
-    if (settled) return
-    settled = true
-    abort.abort()
-  }, HARD_TIMEOUT_MS)
+  let idleTimeoutHandle: ReturnType<typeof setTimeout> | undefined
+  const armIdleTimeout = () => {
+    const check = () => {
+      if (settled) return
+      const idleMs = Date.now() - lastActivityAt
+      if (idleMs >= IDLE_TIMEOUT_MS) {
+        settled = true
+        abort.abort()
+        return
+      }
+      idleTimeoutHandle = setTimeout(check, IDLE_TIMEOUT_MS - idleMs)
+    }
+    idleTimeoutHandle = setTimeout(check, IDLE_TIMEOUT_MS)
+  }
+  armIdleTimeout()
 
   const done = (async () => {
     let buf = ""
@@ -105,6 +136,7 @@ async function streamTurn(
         const props = evt.properties ?? {}
         const evtSessionID = (props as { sessionID?: string; info?: { sessionID?: string } }).sessionID
         if (evtSessionID !== undefined && evtSessionID !== sessionID) continue
+        if (evtSessionID === sessionID) lastActivityAt = Date.now()
 
         if (evt.type === "message.part.updated") {
           sawAnyEvent = true
@@ -147,13 +179,13 @@ async function streamTurn(
     await done
   } finally {
     clearInterval(statusTimer)
-    clearTimeout(hardTimeout)
+    clearTimeout(idleTimeoutHandle)
     abort.abort()
     reader.cancel().catch(() => {})
   }
 
   if (!sawAnyEvent && !token.isCancellationRequested) {
-    throw new Error(`no response after ${Math.round(HARD_TIMEOUT_MS / 1000)}s — try again`)
+    throw new Error(`no activity for ${Math.round(IDLE_TIMEOUT_MS / 1000)}s — try again`)
   }
 }
 
@@ -162,28 +194,35 @@ export function registerChatParticipant(
   manager: ServerManager,
   workspaceDirectory: () => string | undefined,
 ): vscode.Disposable {
-  const participant = vscode.chat.createChatParticipant("mindscript.participant", async (request, _chatContext, stream, token) => {
-    const directory = workspaceDirectory()
-    if (!directory) {
-      stream.markdown("Open a folder first — MindScript works per project.")
-      return
-    }
-    let info: ServerInfo
-    try {
-      stream.progress("Connecting to MindScript…")
-      info = await manager.ensure(directory)
-    } catch (e) {
-      stream.markdown(`Could not start the MindScript server: ${e instanceof Error ? e.message : String(e)}`)
-      return
-    }
-    try {
-      const sessionID = await ensureSession(info, directory)
-      await streamTurn(info, sessionID, request.prompt, stream, token)
-    } catch (e) {
-      if (token.isCancellationRequested) return
-      stream.markdown(`\n\n⚠️ ${e instanceof Error ? e.message : String(e)}`)
-    }
-  })
+  const participant = vscode.chat.createChatParticipant(
+    PARTICIPANT_ID,
+    async (request, chatContext, stream, token): Promise<vscode.ChatResult | void> => {
+      const directory = workspaceDirectory()
+      if (!directory) {
+        stream.markdown("Open a folder first — MindScript works per project.")
+        return
+      }
+      let info: ServerInfo
+      try {
+        stream.progress("Connecting to MindScript…")
+        info = await manager.ensure(directory)
+      } catch (e) {
+        stream.markdown(`Could not start the MindScript server: ${e instanceof Error ? e.message : String(e)}`)
+        return
+      }
+      // Reuse this tab's own MindScript session if one already exists (see sessionIdFromHistory);
+      // otherwise this is a fresh chat tab, so start a fresh conversation.
+      let sessionID = sessionIdFromHistory(chatContext.history)
+      try {
+        if (!sessionID) sessionID = await createSession(info)
+        await streamTurn(info, sessionID, request.prompt, stream, token)
+      } catch (e) {
+        if (token.isCancellationRequested) return { metadata: { sessionID } }
+        stream.markdown(`\n\n⚠️ ${e instanceof Error ? e.message : String(e)}`)
+      }
+      return { metadata: { sessionID } }
+    },
+  )
   participant.iconPath = vscode.Uri.joinPath(context.extensionUri, "media", "icon.png")
   return participant
 }
