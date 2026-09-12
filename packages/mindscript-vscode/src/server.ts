@@ -168,26 +168,23 @@ async function acquireStartLock(directory: string): Promise<() => void> {
       fs.writeSync(fd, token)
       fs.closeSync(fd)
       return () => {
-        // mindscript_change: atomic hand-off, not a plain check-then-delete (Bob's follow-up:
-        // "a token check followed by an unprotected unlink can still race" — correct: a read
-        // and an unlink are two separate syscalls, so a successor's reclaim could land in
-        // between). `renameSync` is atomic on POSIX — nothing ever observes `lp` missing
-        // between the old and new name — so grab whatever currently occupies `lp` first,
-        // THEN inspect it. If it's still ours, delete the (now-private) copy; if a successor
-        // beat us to it, rename it straight back so their claim is never lost. This shrinks the
-        // race from "a read plus an unlink" down to "a single rename," not to exactly zero —
-        // a real flock() would close it fully, and isn't worth the native dependency here.
-        const claimed = `${lp}.release-${token}`
+        // mindscript_change: REVERTED the rename-based hand-off (mindscript-studio 8d09f532ed)
+        // after Bob's follow-up interleaving check (server-lock-interleaving.ts) caught a worse
+        // defect it introduced: renaming `lp` away — even briefly, even just to inspect it —
+        // opens a window where an entirely unrelated, uncontended `acquireStartLock` call (not
+        // just a stale-reclaim) can legitimately claim `lp` via the normal exclusive-create path;
+        // "restoring" what we moved away then blindly overwrites that third party's brand-new,
+        // valid lock. That's worse than the narrow race it was meant to close. Back to a plain
+        // compare-then-delete, which never disturbs `lp` at all when the token doesn't match, so
+        // it can never clobber anyone else's claim — its own residual gap (a reclaim landing
+        // between this read and this unlink, requiring the ORIGINAL holder to still be running
+        // past LOCK_STALE_MS at the exact moment a successor reclaims) is real but strictly
+        // narrower, and closing it further would need real advisory locking (flock), not more
+        // rename tricks — not worth a native dependency for a same-machine, human-timescale race.
         try {
-          fs.renameSync(lp, claimed)
+          if (fs.readFileSync(lp, "utf8") === token) fs.unlinkSync(lp)
         } catch {
-          return // already gone — a successor reclaimed it as stale; nothing to release
-        }
-        try {
-          if (fs.readFileSync(claimed, "utf8") === token) fs.unlinkSync(claimed)
-          else fs.renameSync(claimed, lp) // not ours anymore — put the successor's claim back
-        } catch {
-          /* best-effort: a stuck lock still self-heals via staleness reclamation */
+          /* already gone, or no longer ours — nothing more to do either way */
         }
       }
     } catch (e) {
