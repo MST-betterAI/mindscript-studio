@@ -150,6 +150,7 @@ async function checkHealth(url: string, username: string, password: string): Pro
 // so a crashed holder can't wedge this forever, and a live one is simply waited out.
 const LOCK_STALE_MS = 90_000
 const LOCK_POLL_MS = 250
+const LOCK_REFRESH_MS = 20_000
 
 function lockPath(directory: string): string {
   return `${registryPath(directory)}.lock`
@@ -167,7 +168,22 @@ async function acquireStartLock(directory: string): Promise<() => void> {
       const fd = fs.openSync(lp, "wx")
       fs.writeSync(fd, token)
       fs.closeSync(fd)
+      // mindscript_change: keep the lock's mtime fresh while we're still actively holding it
+      // (same lease-refresh idea as the registry entry below), so staleness means "stopped
+      // refreshing" — genuinely gone — not just "created a while ago" (Bob: "age-only
+      // reclamation can also evict a still-live startup" — a slow-but-alive spawn could
+      // otherwise be evicted by a well-meaning successor). Guarded by the same token check as
+      // release, so a tick that lands after we've already lost the lock never overwrites
+      // whoever holds it now.
+      const refresh = setInterval(() => {
+        try {
+          if (fs.readFileSync(lp, "utf8") === token) fs.writeFileSync(lp, token)
+        } catch {
+          /* if this fails, staleness reclamation is the fallback anyway */
+        }
+      }, LOCK_REFRESH_MS)
       return () => {
+        clearInterval(refresh)
         // mindscript_change: REVERTED the rename-based hand-off (mindscript-studio 8d09f532ed)
         // after Bob's follow-up interleaving check (server-lock-interleaving.ts) caught a worse
         // defect it introduced: renaming `lp` away — even briefly, even just to inspect it —
