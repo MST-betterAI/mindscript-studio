@@ -157,17 +157,25 @@ function lockPath(directory: string): string {
 
 async function acquireStartLock(directory: string): Promise<() => void> {
   const lp = lockPath(directory)
+  // mindscript_change: a unique per-acquisition token, not just our pid — see the release
+  // closure below for why a bare unlink-by-path isn't safe (Bob's check: "Expired original
+  // holder cannot unlink a successor lock").
+  const token = `${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2)}`
   for (;;) {
     try {
       fs.mkdirSync(path.dirname(lp), { recursive: true })
       const fd = fs.openSync(lp, "wx")
-      fs.writeSync(fd, String(process.pid))
+      fs.writeSync(fd, token)
       fs.closeSync(fd)
       return () => {
+        // Compare-and-delete, not a blind unlink: a holder slow enough to outlive
+        // LOCK_STALE_MS can have its lock reclaimed by a successor while it's still
+        // (legitimately) running. If that happened, this path now holds the SUCCESSOR's
+        // token, not ours — releasing must leave it alone rather than deleting their claim.
         try {
-          fs.unlinkSync(lp)
+          if (fs.readFileSync(lp, "utf8") === token) fs.unlinkSync(lp)
         } catch {
-          /* already gone */
+          /* already gone, or no longer ours — nothing more to do either way */
         }
       }
     } catch (e) {
