@@ -168,14 +168,26 @@ async function acquireStartLock(directory: string): Promise<() => void> {
       fs.writeSync(fd, token)
       fs.closeSync(fd)
       return () => {
-        // Compare-and-delete, not a blind unlink: a holder slow enough to outlive
-        // LOCK_STALE_MS can have its lock reclaimed by a successor while it's still
-        // (legitimately) running. If that happened, this path now holds the SUCCESSOR's
-        // token, not ours — releasing must leave it alone rather than deleting their claim.
+        // mindscript_change: atomic hand-off, not a plain check-then-delete (Bob's follow-up:
+        // "a token check followed by an unprotected unlink can still race" — correct: a read
+        // and an unlink are two separate syscalls, so a successor's reclaim could land in
+        // between). `renameSync` is atomic on POSIX — nothing ever observes `lp` missing
+        // between the old and new name — so grab whatever currently occupies `lp` first,
+        // THEN inspect it. If it's still ours, delete the (now-private) copy; if a successor
+        // beat us to it, rename it straight back so their claim is never lost. This shrinks the
+        // race from "a read plus an unlink" down to "a single rename," not to exactly zero —
+        // a real flock() would close it fully, and isn't worth the native dependency here.
+        const claimed = `${lp}.release-${token}`
         try {
-          if (fs.readFileSync(lp, "utf8") === token) fs.unlinkSync(lp)
+          fs.renameSync(lp, claimed)
         } catch {
-          /* already gone, or no longer ours — nothing more to do either way */
+          return // already gone — a successor reclaimed it as stale; nothing to release
+        }
+        try {
+          if (fs.readFileSync(claimed, "utf8") === token) fs.unlinkSync(claimed)
+          else fs.renameSync(claimed, lp) // not ours anymore — put the successor's claim back
+        } catch {
+          /* best-effort: a stuck lock still self-heals via staleness reclamation */
         }
       }
     } catch (e) {
