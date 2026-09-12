@@ -28,6 +28,15 @@
   ],
   "main": "./dist/extension.js",
   "contributes": {
+    "chatParticipants": [
+      {
+        "id": "mindscript.participant",
+        "fullName": "MindScript",
+        "name": "mindscript",
+        "description": "Ask MindScript — routed to the best-value model for the question, cost shown when it answers.",
+        "isSticky": true
+      }
+    ],
     "viewsContainers": {
       "activitybar": [
         {

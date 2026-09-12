@@ -3,6 +3,7 @@
 import * as vscode from "vscode"
 import * as path from "node:path"
 import { ServerManager, type ServerInfo } from "./server"
+import { registerChatParticipant } from "./chat-participant"
 
 let manager: ServerManager | undefined
 let out: vscode.OutputChannel | undefined
@@ -161,6 +162,9 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
     out,
     vscode.window.registerWebviewViewProvider("mindscript.chat", provider, { webviewOptions: { retainContextWhenHidden: true } }),
+    // Experiment: MindScript as a native VS Code chat participant (`@mindscript` in the built-in
+    // Chat view), alongside the existing sidebar panel — additive, does not replace it.
+    registerChatParticipant(context, manager, workspaceDirectory),
   )
 
   const status = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 50)

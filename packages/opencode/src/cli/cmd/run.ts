@@ -89,32 +89,53 @@ function formatRunError(error: unknown) {
 
 // mindscript_change: the request that starts a turn (session.prompt / session.command) can hang
 // indefinitely with zero visible output if the connection to the server stalls before anything
-// streams back (seen intermittently; not yet root-caused, tracked separately). Rather than sit
-// silently, surface a "still working" status on a fixed cadence and give up with a clear, actionable
-// error after a hard ceiling instead of hanging forever. Both are configurable so long real tasks
-// and slow models are not mistaken for a stall.
+// streams back (seen intermittently; not yet root-caused, tracked separately). `session.prompt`
+// is SYNCHRONOUS server-side — it blocks until the whole multi-step turn finishes, not just until
+// it starts (confirmed against SessionHttpApi.prompt) — so this must watch for a lack of PROGRESS,
+// never a flat deadline on the whole call: a healthy task that runs past the window while actively
+// streaming text/tool activity must keep going, and only genuine silence should trip it. `loop()`
+// below bumps `lastActivityAt` on every event for this session; this only checks how long it's been
+// quiet. Known gap, not solved here: a legitimately silent long-running tool (one with no
+// intermediate output at all) looks identical to a stall and can still trip this — a real, narrower
+// limitation than a flat deadline, called out rather than hidden.
 const STATUS_INTERVAL_MS = Number(process.env["MINDSCRIPT_STATUS_INTERVAL_MS"]) || 10_000
 const REQUEST_TIMEOUT_MS = Number(process.env["MINDSCRIPT_REQUEST_TIMEOUT_MS"]) || 90_000
 
 type StartRequestResult<T> = { ok: true; value: T } | { ok: false; timedOut: true }
 
+/** Mutable, shared with `loop()`: the last time any event for this session was observed. */
+type Activity = { at: number }
+
 async function startRequestWithStatus<T>(
   send: () => Promise<T>,
-  onStatus: (elapsedMs: number) => void,
+  onStatus: (idleMs: number) => void,
+  activity: Activity,
 ): Promise<StartRequestResult<T>> {
-  const started = Date.now()
   let settled = false
+  let timeoutHandle: ReturnType<typeof setTimeout> | undefined
   const ticker = setInterval(() => {
-    if (!settled) onStatus(Date.now() - started)
+    if (!settled) onStatus(Date.now() - activity.at)
   }, STATUS_INTERVAL_MS)
   const timeout = new Promise<StartRequestResult<T>>((resolve) => {
-    setTimeout(() => resolve({ ok: false, timedOut: true }), REQUEST_TIMEOUT_MS)
+    // Re-arms itself against the REMAINING idle budget each time, so activity in `loop()`
+    // (which advances `activity.at`) genuinely postpones this — not just a reset-and-forget.
+    const check = () => {
+      if (settled) return
+      const idleMs = Date.now() - activity.at
+      if (idleMs >= REQUEST_TIMEOUT_MS) {
+        resolve({ ok: false, timedOut: true })
+        return
+      }
+      timeoutHandle = setTimeout(check, REQUEST_TIMEOUT_MS - idleMs)
+    }
+    timeoutHandle = setTimeout(check, REQUEST_TIMEOUT_MS)
   })
   try {
     return await Promise.race([send().then((value): StartRequestResult<T> => ({ ok: true, value })), timeout])
   } finally {
     settled = true
     clearInterval(ticker)
+    clearTimeout(timeoutHandle)
   }
 }
 
@@ -725,12 +746,36 @@ export const RunCommand = effectCmd({
         // to stdout/UI. `client` is passed explicitly because attach mode may
         // rebind the SDK to the session's directory after the subscription is
         // created, and replies issued from inside the loop must use that client.
-        async function loop(client: OpencodeClient, events: Awaited<ReturnType<typeof sdk.event.subscribe>>) {
+        async function loop(
+          client: OpencodeClient,
+          events: Awaited<ReturnType<typeof sdk.event.subscribe>>,
+          activity: Activity,
+        ) {
           const toggles = new Map<string, boolean>()
           const sessions = new Set([sessionID])
           let error: string | undefined
 
+          // mindscript_change: any event that belongs to a session we're tracking is real
+          // progress — this is what lets startRequestWithStatus tell "healthy but slow" apart
+          // from "genuinely stuck" (see its comment above). Checked against the same shapes
+          // the branches below already look at, so it never drifts out of sync with them.
+          function eventSessionID(e: unknown): string | undefined {
+            if (!e || typeof e !== "object" || !("properties" in e)) return undefined
+            const p = (e as { properties?: unknown }).properties
+            if (!p || typeof p !== "object") return undefined
+            const rec = p as Record<string, unknown>
+            if (typeof rec.sessionID === "string") return rec.sessionID
+            const part = rec.part as { sessionID?: unknown } | undefined
+            if (typeof part?.sessionID === "string") return part.sessionID
+            const info = rec.info as { sessionID?: unknown } | undefined
+            if (typeof info?.sessionID === "string") return info.sessionID
+            return undefined
+          }
+
           for await (const event of events.stream) {
+            const evtSessionID = eventSessionID(event)
+            if (evtSessionID !== undefined && sessions.has(evtSessionID)) activity.at = Date.now()
+
             if (event.type === "session.created" && event.properties.info.parentID) {
               if (sessions.has(event.properties.info.parentID)) sessions.add(event.properties.info.id)
             }
@@ -863,7 +908,12 @@ export const RunCommand = effectCmd({
 
         if (!interactive) {
           const events = await client.event.subscribe()
-          const completed = loop(client, events).catch((e) => {
+          // mindscript_change: shared with startRequestWithStatus below — loop() bumps this on
+          // every event for this session, so "no progress for Ns" (not "no response since the
+          // call started") is what actually triggers the timeout. A healthy task that runs past
+          // the window while actively streaming never trips it.
+          const activity: Activity = { at: Date.now() }
+          const completed = loop(client, events, activity).catch((e) => {
             console.error(e)
             process.exitCode = 1
           })
@@ -876,19 +926,19 @@ export const RunCommand = effectCmd({
           // mindscript_change: visible "still working" status + a hard timeout instead of hanging
           // silently (see startRequestWithStatus above). Applies to whichever request actually
           // starts the turn — the slash-command path or the plain prompt path, whichever runs.
-          function reportStatus(elapsedMs: number) {
-            const seconds = Math.round(elapsedMs / 1000)
-            if (emit("status", { message: "still waiting for a response", elapsedMs })) return
-            const line = `${UI.Style.TEXT_DIM}...still working (${seconds}s)${UI.Style.TEXT_NORMAL}`
+          function reportStatus(idleMs: number) {
+            const seconds = Math.round(idleMs / 1000)
+            if (emit("status", { message: "no activity in the current turn", idleMs })) return
+            const line = `${UI.Style.TEXT_DIM}...still working, nothing new in ${seconds}s${UI.Style.TEXT_NORMAL}`
             if (process.stdout.isTTY) {
               UI.println(line)
             } else {
-              process.stderr.write(`...still working (${seconds}s)${EOL}`)
+              process.stderr.write(`...still working, nothing new in ${seconds}s${EOL}`)
             }
           }
           function reportTimeout() {
             const seconds = Math.round(REQUEST_TIMEOUT_MS / 1000)
-            const message = `no response after ${seconds}s — the server may have lost its connection; try again, or run with MINDSCRIPT_REQUEST_TIMEOUT_MS set higher for a genuinely long task`
+            const message = `no activity for ${seconds}s — the server may have lost its connection; try again, or run with MINDSCRIPT_REQUEST_TIMEOUT_MS set higher if this is a genuinely quiet long-running step (e.g. one slow tool call with no intermediate output)`
             if (!emit("error", { error: { name: "RequestTimeoutError", message } })) UI.error(message)
             // The request that never resolved (and the still-open event subscription) would
             // otherwise keep this process alive indefinitely with nothing left to report —
@@ -908,6 +958,7 @@ export const RunCommand = effectCmd({
                   variant: args.variant,
                 }),
               reportStatus,
+              activity,
             )
             if (!started.ok) {
               reportTimeout()
@@ -933,6 +984,7 @@ export const RunCommand = effectCmd({
                 parts: [...files, { type: "text", text: message }],
               }),
             reportStatus,
+            activity,
           )
           if (!started.ok) {
             reportTimeout()
