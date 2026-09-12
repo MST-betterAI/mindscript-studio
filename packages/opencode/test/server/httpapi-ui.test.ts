@@ -440,6 +440,26 @@ describe("HttpApi UI fallback", () => {
     }),
   )
 
+  // Regression: a page loaded via `?auth_token=` (the VS Code extension's
+  // embedding scheme) gets that token on the initial document request, but
+  // the browser's own subsequent <script src>/<link href> requests for the
+  // app's bundle do not carry the parent page's query string. Without this,
+  // the bundle itself 401s, the app never mounts, and #root stays empty
+  // forever — reported as a blank white screen in the VS Code editor tab.
+  it.live("serves the app bundle under /assets without auth even when a server password is set", () =>
+    Effect.gen(function* () {
+      for (const path of ["/assets/index-DmWHFJzO.js", "/assets/index-B41UoQba.css"]) {
+        const response = yield* uiApp({
+          password: "secret",
+          username: "opencode",
+          disableEmbeddedWebUi: true,
+          client: httpClient(new Response("ok")),
+        }).request(path)
+        expect(response.status).not.toBe(401)
+      }
+    }),
+  )
+
   it.live("allows web UI preflight without auth", () =>
     Effect.gen(function* () {
       const response = yield* app({ password: "secret", username: "opencode" }).request("/", {
