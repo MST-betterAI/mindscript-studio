@@ -13,8 +13,8 @@ import type {
 } from "../../preload/types"
 import { WSL_SERVERS_KEY } from "../store-keys"
 import { getStore } from "../store"
-import { expectOpencodeVersion, pendingRestartAfterWslInstall, wslServerIdsToStartOnInitialize } from "./startup"
-import { clearWslDistroState, wslServerIdToRestart } from "./policy"
+import { pendingRestartAfterWslInstall, wslServerIdsToStartOnInitialize } from "./startup"
+import { clearWslDistroState } from "./policy"
 import { nativeT } from "../native-translations"
 import {
   installWslDistro,
@@ -137,10 +137,6 @@ export function createWslServersController(
       ? await (options?.readCommandVersion ?? readWslCommandVersion)(resolved, distro, opts)
       : null
     return opencodeCheck(distro, resolved, version, appVersion)
-  }
-
-  const refreshOpencodeCheck = async (distro: string, opts?: { signal?: AbortSignal }) => {
-    setOpencodeCheck(distro, await checkOpencode(distro, opts))
   }
 
   const probeAddableDistros = async (distros: string[], opts?: { signal?: AbortSignal }) => {
@@ -362,14 +358,10 @@ export function createWslServersController(
 
     async installOpencode(name: string) {
       await runJob({ kind: "install-opencode", distro: name, startedAt: Date.now() }, async (abort) => {
-        const result = await installWslOpencode(appVersion, name, { signal: abort.signal })
-        if (result.code !== 0) {
-          throw new Error(summarize(result.stderr || result.stdout) || nativeT("desktop.wsl.error.installOpencode"))
-        }
-        await refreshOpencodeCheck(name, { signal: abort.signal })
-        expectOpencodeVersion(state.opencodeChecks[name]?.version ?? null, appVersion, name)
-        const id = wslServerIdToRestart(state.servers, name)
-        if (id) await startServer(id)
+        // installWslOpencode now refuses rather than installing upstream's binary, so
+        // everything that followed a successful install is unreachable. The thrown
+        // message is what the UI shows.
+        await installWslOpencode(appVersion, name, { signal: abort.signal })
       })
     },
 

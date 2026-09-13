@@ -264,15 +264,12 @@ export async function installWslDistro(name: string, opts?: RunWslOptions) {
   )
 }
 
-export async function installWslOpencode(version: string, distro: string, opts?: RunWslOptions) {
-  return runInteractiveCommand(
-    resolveSystem32Command("wsl.exe"),
-    wslArgs(
-      ["bash", "-lc", `curl -fsSL https://opencode.ai/install | bash -s -- --version ${shellEscape(version)}`],
-      distro,
-    ),
-    withTimeout(opts, DEFAULT_WSL_INSTALL_TIMEOUT_MS),
-    DEFAULT_WSL_INSTALL_TIMEOUT_MS,
+// mindscript_change: upstream piped https://opencode.ai/install into bash here, which would
+// install a different product into the user's distro under our name. MindScript Studio has no
+// WSL installer of its own yet, so this refuses rather than installing someone else's binary.
+export async function installWslOpencode(_version: string, _distro: string, _opts?: RunWslOptions): Promise<never> {
+  throw new Error(
+    "MindScript Studio cannot install itself into WSL yet. Install it inside your distro manually, then reopen this window.",
   )
 }
 
@@ -311,7 +308,7 @@ export async function resolveWslOpencode(distro: string, opts?: RunWslOptions) {
   return firstLine(
     (
       await runWslSh(
-        'if [ -x "$HOME/.opencode/bin/opencode" ]; then printf "%s\\n" "$HOME/.opencode/bin/opencode"; fi',
+        'for c in "$HOME/.opencode/bin/mindscript" "$(command -v mindscript 2>/dev/null)" "$HOME/.opencode/bin/opencode"; do if [ -n "$c" ] && [ -x "$c" ]; then printf "%s\\n" "$c"; break; fi; done',
         distro,
         opts,
       )

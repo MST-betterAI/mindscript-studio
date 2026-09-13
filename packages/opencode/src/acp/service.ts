@@ -104,7 +104,7 @@ export function make(input: {
         "terminal-auth": {
           command: "opencode",
           args: ["auth", "login"],
-          label: "OpenCode Login",
+          label: "MindScript Studio Login",
         },
       }
     }
@@ -1067,7 +1067,7 @@ function fromUnknownError(error: unknown, service?: string): Error {
   if (isAuthRequired(error)) {
     return new ACPError.AuthRequiredError({ providerId: findProviderID(error) })
   }
-  return new ACPError.ServiceFailureError({ safeMessage: "OpenCode service failure", service })
+  return new ACPError.ServiceFailureError({ safeMessage: "MindScript Studio service failure", service })
 }
 
 function isACPError(error: unknown): error is Error {

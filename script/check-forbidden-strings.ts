@@ -17,13 +17,35 @@ const UPDATE = process.argv.includes("--update")
 const BASELINE_FILE = path.join(ROOT, "script", "forbidden-strings.baseline.json")
 
 // Shipped source only: the CLI/server, the web app, the desktop app, shared UI/core.
-const DIRS = ["packages/opencode/src", "packages/app/src", "packages/desktop/src", "packages/ui/src", "packages/core/src"]
+const DIRS = [
+  "packages/opencode/src",
+  "packages/app/src",
+  "packages/desktop/src",
+  "packages/desktop/scripts",
+  "packages/desktop/resources",
+  "packages/ui/src",
+  "packages/core/src",
+  "packages/tui/src",
+  "packages/mindscript-vscode/src",
+  "packages/cli/src",
+]
 const EXT = new Set([".ts", ".tsx", ".js", ".jsx", ".mjs", ".html", ".css", ".json"])
-const SKIP = /(\.test\.|\.stories\.|\/__tests__\/|\/test\/|\/i18n\/)/
+const SKIP = /(\.test\.|\.stories\.|\/__tests__\/|\/test\/)/
 
 // Hosts and paths that must not gain new references. Docs links are included on
 // purpose: a customer must never be sent to upstream docs/support from our UI.
-const PATTERNS: RegExp[] = [/opncd\.ai/g, /opencode\.ai/g, /discord\.com\/invite\/opencode/g]
+const PATTERNS: RegExp[] = [
+  /opncd\.ai/g,
+  /opencode\.ai/g,
+  /discord\.com\/invite\/opencode/g,
+  /github\.com\/anomalyco/g,
+  // The product name in user-visible text. Functional forms are excluded below, because
+  // renaming those breaks real user data: config files, env vars, storage keys, package
+  // names and wire headers all legitimately contain "opencode".
+  /(?<!@)(?<!\.)\bopencode\b(?!\.json|\.jsonc|\.db|\.local|-ai\/|_|\.ai|\.status)/gi,
+  // "OC-1"/"OC-2" theme names are OpenCode initials and no opencode grep will find them.
+  /\bOC-[12]\b/g,
+]
 
 type Baseline = Record<string, { count: number; note?: string }>
 

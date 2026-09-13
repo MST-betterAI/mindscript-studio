@@ -1,89 +1,755 @@
 {
   "packages/app/src/components/dialog-connect-provider.tsx": {
-    "count": 2
+    "count": 15
   },
-  "packages/app/src/components/dialog-custom-provider.tsx": {
+  "packages/app/src/components/dialog-select-model-unpaid-v2.tsx": {
+    "count": 6
+  },
+  "packages/app/src/components/dialog-select-model-unpaid.tsx": {
+    "count": 4
+  },
+  "packages/app/src/components/dialog-select-model.tsx": {
     "count": 1
   },
-  "packages/app/src/components/settings-general.tsx": {
+  "packages/app/src/components/dialog-select-server.tsx": {
     "count": 1
   },
-  "packages/app/src/components/settings-v2/general.tsx": {
+  "packages/app/src/components/session/session-header.tsx": {
+    "count": 1
+  },
+  "packages/app/src/components/session/session-mindscript-tab.tsx": {
+    "count": 1
+  },
+  "packages/app/src/components/settings-providers.tsx": {
+    "count": 5
+  },
+  "packages/app/src/components/settings-v2/providers.tsx": {
+    "count": 5
+  },
+  "packages/app/src/components/terminal.tsx": {
+    "count": 3
+  },
+  "packages/app/src/components/titlebar-session-events.ts": {
+    "count": 1
+  },
+  "packages/app/src/components/titlebar.tsx": {
+    "count": 5
+  },
+  "packages/app/src/context/global-sync/bootstrap.ts": {
+    "count": 1
+  },
+  "packages/app/src/context/global-sync/event-reducer.ts": {
+    "count": 1
+  },
+  "packages/app/src/context/language.tsx": {
     "count": 1
   },
   "packages/app/src/entry.tsx": {
+    "count": 2
+  },
+  "packages/app/src/hooks/use-providers.ts": {
+    "count": 3
+  },
+  "packages/app/src/i18n/desktop-native.ts": {
+    "count": 2
+  },
+  "packages/app/src/i18n/en.ts": {
     "count": 1
   },
-  "packages/app/src/pages/layout/helpers.ts": {
+  "packages/app/src/pages/layout/deep-links.ts": {
+    "count": 2
+  },
+  "packages/app/src/pages/session/usage-exceeded-dialogs.tsx": {
+    "count": 3
+  },
+  "packages/app/src/utils/draft-store.ts": {
+    "count": 1
+  },
+  "packages/app/src/utils/persist.ts": {
+    "count": 5
+  },
+  "packages/app/src/utils/routing-preferences-client.ts": {
+    "count": 1
+  },
+  "packages/app/src/utils/server-health.ts": {
+    "count": 2
+  },
+  "packages/app/src/utils/server.ts": {
+    "count": 4
+  },
+  "packages/app/src/utils/session-export.ts": {
+    "count": 1
+  },
+  "packages/app/src/wsl/dialog-add-server.tsx": {
+    "count": 1
+  },
+  "packages/app/src/wsl/settings-model.ts": {
+    "count": 4
+  },
+  "packages/app/src/wsl/settings.tsx": {
+    "count": 1
+  },
+  "packages/app/src/wsl/types.ts": {
+    "count": 1
+  },
+  "packages/cli/src/commands/commands.ts": {
+    "count": 2
+  },
+  "packages/core/src/database/database.ts": {
+    "count": 1
+  },
+  "packages/core/src/file-mutation.ts": {
     "count": 1
   },
   "packages/core/src/models-dev.ts": {
-    "count": 2
+    "count": 4
+  },
+  "packages/core/src/oauth/page.ts": {
+    "count": 3
+  },
+  "packages/core/src/observability/logging.ts": {
+    "count": 1
+  },
+  "packages/core/src/observability/otlp.ts": {
+    "count": 3
+  },
+  "packages/core/src/plugin/provider.ts": {
+    "count": 1
+  },
+  "packages/core/src/plugin/provider/cerebras.ts": {
+    "count": 1
+  },
+  "packages/core/src/plugin/provider/cloudflare-ai-gateway.ts": {
+    "count": 1
+  },
+  "packages/core/src/plugin/provider/cloudflare-workers-ai.ts": {
+    "count": 1
+  },
+  "packages/core/src/plugin/provider/gitlab.ts": {
+    "count": 1
   },
   "packages/core/src/plugin/provider/kilo.ts": {
-    "count": 1
+    "count": 2
   },
   "packages/core/src/plugin/provider/llmgateway.ts": {
-    "count": 1
+    "count": 3
   },
   "packages/core/src/plugin/provider/nvidia.ts": {
-    "count": 1
+    "count": 3
+  },
+  "packages/core/src/plugin/provider/openai.ts": {
+    "count": 2
   },
   "packages/core/src/plugin/provider/opencode.ts": {
-    "count": 1
+    "count": 13
   },
   "packages/core/src/plugin/provider/openrouter.ts": {
-    "count": 1
+    "count": 2
   },
   "packages/core/src/plugin/provider/vercel.ts": {
-    "count": 1
+    "count": 2
   },
   "packages/core/src/plugin/provider/zenmux.ts": {
+    "count": 2
+  },
+  "packages/core/src/plugin/skill.ts": {
+    "count": 7
+  },
+  "packages/core/src/project.ts": {
+    "count": 3
+  },
+  "packages/core/src/shell.ts": {
+    "count": 2
+  },
+  "packages/core/src/tool/webfetch.ts": {
+    "count": 1
+  },
+  "packages/core/src/tool/websearch.ts": {
     "count": 1
   },
   "packages/core/src/v1/config/config.ts": {
+    "count": 3
+  },
+  "packages/core/src/v1/config/lsp.ts": {
+    "count": 1
+  },
+  "packages/desktop/scripts/finalize-latest-json.ts": {
+    "count": 2
+  },
+  "packages/desktop/scripts/prebuild.ts": {
+    "count": 1
+  },
+  "packages/desktop/scripts/predev.ts": {
+    "count": 1
+  },
+  "packages/desktop/scripts/utils.ts": {
+    "count": 2
+  },
+  "packages/desktop/src/main/background-cli.ts": {
+    "count": 4
+  },
+  "packages/desktop/src/main/env.d.ts": {
+    "count": 6
+  },
+  "packages/desktop/src/main/index.ts": {
+    "count": 2
+  },
+  "packages/desktop/src/main/install-state.ts": {
+    "count": 2
+  },
+  "packages/desktop/src/main/logging.ts": {
+    "count": 3
+  },
+  "packages/desktop/src/main/migrate.ts": {
+    "count": 8
+  },
+  "packages/desktop/src/main/server.ts": {
+    "count": 2
+  },
+  "packages/desktop/src/main/sidecar.ts": {
+    "count": 3
+  },
+  "packages/desktop/src/main/store-cleanup.ts": {
+    "count": 2
+  },
+  "packages/desktop/src/main/store-keys.ts": {
+    "count": 1
+  },
+  "packages/desktop/src/main/store.ts": {
+    "count": 2
+  },
+  "packages/desktop/src/main/updater.ts": {
+    "count": 1
+  },
+  "packages/desktop/src/main/windows.ts": {
+    "count": 1
+  },
+  "packages/desktop/src/main/wsl/ipc.ts": {
     "count": 2
   },
   "packages/desktop/src/main/wsl/runtime.ts": {
+    "count": 2
+  },
+  "packages/desktop/src/main/wsl/servers.ts": {
+    "count": 3
+  },
+  "packages/desktop/src/main/wsl/sidecar.ts": {
+    "count": 4
+  },
+  "packages/desktop/src/preload/index.ts": {
+    "count": 1
+  },
+  "packages/desktop/src/renderer/i18n/en.ts": {
+    "count": 1
+  },
+  "packages/desktop/src/renderer/i18n/index.ts": {
+    "count": 1
+  },
+  "packages/desktop/src/renderer/index.tsx": {
+    "count": 3
+  },
+  "packages/mindscript-vscode/src/server.ts": {
+    "count": 1
+  },
+  "packages/opencode/src/account/account.ts": {
+    "count": 1
+  },
+  "packages/opencode/src/acp/service.ts": {
+    "count": 8
+  },
+  "packages/opencode/src/auth/index.ts": {
     "count": 1
   },
   "packages/opencode/src/cli/cmd/account.ts": {
     "count": 1
   },
+  "packages/opencode/src/cli/cmd/attach.ts": {
+    "count": 1
+  },
+  "packages/opencode/src/cli/cmd/debug/index.ts": {
+    "count": 1
+  },
   "packages/opencode/src/cli/cmd/github.handler.ts": {
-    "count": 5
+    "count": 26
   },
   "packages/opencode/src/cli/cmd/import.ts": {
     "count": 1
   },
-  "packages/opencode/src/cli/cmd/providers.ts": {
+  "packages/opencode/src/cli/cmd/mcp.ts": {
+    "count": 4
+  },
+  "packages/opencode/src/cli/cmd/models.ts": {
     "count": 2
   },
+  "packages/opencode/src/cli/cmd/plug.ts": {
+    "count": 1
+  },
+  "packages/opencode/src/cli/cmd/pr.ts": {
+    "count": 4
+  },
+  "packages/opencode/src/cli/cmd/providers.ts": {
+    "count": 7
+  },
+  "packages/opencode/src/cli/cmd/run.ts": {
+    "count": 9
+  },
+  "packages/opencode/src/cli/cmd/run/demo.ts": {
+    "count": 2
+  },
+  "packages/opencode/src/cli/cmd/run/footer.command.tsx": {
+    "count": 3
+  },
+  "packages/opencode/src/cli/cmd/run/footer.prompt.tsx": {
+    "count": 1
+  },
+  "packages/opencode/src/cli/cmd/run/permission.shared.ts": {
+    "count": 2
+  },
+  "packages/opencode/src/cli/cmd/run/runtime.ts": {
+    "count": 2
+  },
+  "packages/opencode/src/cli/cmd/run/splash.ts": {
+    "count": 3
+  },
+  "packages/opencode/src/cli/cmd/run/tool.ts": {
+    "count": 1
+  },
+  "packages/opencode/src/cli/cmd/run/trace.ts": {
+    "count": 1
+  },
+  "packages/opencode/src/cli/cmd/run/types.ts": {
+    "count": 1
+  },
+  "packages/opencode/src/cli/cmd/run/variant.shared.ts": {
+    "count": 1
+  },
+  "packages/opencode/src/cli/cmd/serve.ts": {
+    "count": 1
+  },
+  "packages/opencode/src/cli/cmd/tui.ts": {
+    "count": 2
+  },
+  "packages/opencode/src/cli/cmd/uninstall.ts": {
+    "count": 17
+  },
+  "packages/opencode/src/cli/cmd/upgrade.ts": {
+    "count": 3
+  },
+  "packages/opencode/src/cli/cmd/web.ts": {
+    "count": 1
+  },
+  "packages/opencode/src/cli/error.ts": {
+    "count": 3
+  },
   "packages/opencode/src/config/config.ts": {
-    "count": 5
+    "count": 7
+  },
+  "packages/opencode/src/config/managed.ts": {
+    "count": 4
   },
   "packages/opencode/src/config/tui-migrate.ts": {
+    "count": 5
+  },
+  "packages/opencode/src/config/v2-compat.ts": {
+    "count": 1
+  },
+  "packages/opencode/src/control-plane/dev/debug-workspace-plugin.ts": {
+    "count": 1
+  },
+  "packages/opencode/src/effect/config-service.ts": {
+    "count": 1
+  },
+  "packages/opencode/src/effect/instance-ref.ts": {
+    "count": 2
+  },
+  "packages/opencode/src/effect/instance-state.ts": {
+    "count": 1
+  },
+  "packages/opencode/src/event-v2-bridge.ts": {
     "count": 1
   },
   "packages/opencode/src/installation/index.ts": {
+    "count": 20
+  },
+  "packages/opencode/src/lsp/server.ts": {
     "count": 1
   },
+  "packages/opencode/src/mcp/index.ts": {
+    "count": 11
+  },
   "packages/opencode/src/mcp/oauth-provider.ts": {
+    "count": 2
+  },
+  "packages/opencode/src/plugin/azure.ts": {
+    "count": 1
+  },
+  "packages/opencode/src/plugin/digitalocean.ts": {
+    "count": 2
+  },
+  "packages/opencode/src/plugin/github-copilot/copilot.ts": {
+    "count": 4
+  },
+  "packages/opencode/src/plugin/github-copilot/models.ts": {
+    "count": 1
+  },
+  "packages/opencode/src/plugin/index.ts": {
+    "count": 2
+  },
+  "packages/opencode/src/plugin/install.ts": {
+    "count": 3
+  },
+  "packages/opencode/src/plugin/loader.ts": {
+    "count": 1
+  },
+  "packages/opencode/src/plugin/openai/codex.ts": {
+    "count": 5
+  },
+  "packages/opencode/src/plugin/openai/ws-pool.ts": {
+    "count": 1
+  },
+  "packages/opencode/src/plugin/shared.ts": {
+    "count": 3
+  },
+  "packages/opencode/src/plugin/snowflake-cortex.ts": {
+    "count": 3
+  },
+  "packages/opencode/src/plugin/xai.ts": {
+    "count": 3
+  },
+  "packages/opencode/src/provider/error.ts": {
     "count": 1
   },
   "packages/opencode/src/provider/provider.ts": {
+    "count": 23
+  },
+  "packages/opencode/src/provider/transform.ts": {
     "count": 6
   },
+  "packages/opencode/src/server/auth.ts": {
+    "count": 2
+  },
+  "packages/opencode/src/server/mdns.ts": {
+    "count": 1
+  },
+  "packages/opencode/src/server/proxy-util.ts": {
+    "count": 2
+  },
+  "packages/opencode/src/server/routes/instance/httpapi/api.ts": {
+    "count": 3
+  },
+  "packages/opencode/src/server/routes/instance/httpapi/groups/config.ts": {
+    "count": 3
+  },
+  "packages/opencode/src/server/routes/instance/httpapi/groups/experimental.ts": {
+    "count": 4
+  },
+  "packages/opencode/src/server/routes/instance/httpapi/groups/file.ts": {
+    "count": 1
+  },
+  "packages/opencode/src/server/routes/instance/httpapi/groups/global.ts": {
+    "count": 7
+  },
+  "packages/opencode/src/server/routes/instance/httpapi/groups/instance.ts": {
+    "count": 6
+  },
+  "packages/opencode/src/server/routes/instance/httpapi/groups/mcp.ts": {
+    "count": 1
+  },
+  "packages/opencode/src/server/routes/instance/httpapi/groups/permission.ts": {
+    "count": 1
+  },
+  "packages/opencode/src/server/routes/instance/httpapi/groups/project.ts": {
+    "count": 3
+  },
+  "packages/opencode/src/server/routes/instance/httpapi/groups/provider.ts": {
+    "count": 1
+  },
+  "packages/opencode/src/server/routes/instance/httpapi/groups/pty.ts": {
+    "count": 2
+  },
+  "packages/opencode/src/server/routes/instance/httpapi/groups/question.ts": {
+    "count": 1
+  },
+  "packages/opencode/src/server/routes/instance/httpapi/groups/session.ts": {
+    "count": 4
+  },
+  "packages/opencode/src/server/routes/instance/httpapi/groups/sync.ts": {
+    "count": 1
+  },
+  "packages/opencode/src/server/routes/instance/httpapi/groups/tui.ts": {
+    "count": 1
+  },
+  "packages/opencode/src/server/routes/instance/httpapi/groups/workspace.ts": {
+    "count": 1
+  },
+  "packages/opencode/src/server/routes/instance/httpapi/handlers/mindscript.ts": {
+    "count": 1
+  },
+  "packages/opencode/src/server/routes/instance/httpapi/middleware/workspace-routing.ts": {
+    "count": 1
+  },
+  "packages/opencode/src/server/routes/instance/httpapi/public.ts": {
+    "count": 3
+  },
+  "packages/opencode/src/server/shared/fence.ts": {
+    "count": 1
+  },
+  "packages/opencode/src/server/shared/pty-ticket.ts": {
+    "count": 1
+  },
   "packages/opencode/src/server/shared/ui.ts": {
+    "count": 2
+  },
+  "packages/opencode/src/server/shared/workspace-routing.ts": {
+    "count": 1
+  },
+  "packages/opencode/src/session/llm.ts": {
+    "count": 1
+  },
+  "packages/opencode/src/session/llm/native-request.ts": {
+    "count": 1
+  },
+  "packages/opencode/src/session/llm/native-runtime.ts": {
+    "count": 3
+  },
+  "packages/opencode/src/session/llm/request.ts": {
+    "count": 7
+  },
+  "packages/opencode/src/session/processor.ts": {
     "count": 1
   },
   "packages/opencode/src/session/retry.ts": {
-    "count": 2
+    "count": 1
   },
   "packages/opencode/src/share/share-next.ts": {
     "count": 1
   },
+  "packages/opencode/src/skill/index.ts": {
+    "count": 8
+  },
+  "packages/opencode/src/temporary.ts": {
+    "count": 1
+  },
+  "packages/opencode/src/tool/registry.ts": {
+    "count": 1
+  },
+  "packages/opencode/src/tool/shell/id.ts": {
+    "count": 1
+  },
+  "packages/opencode/src/tool/truncate.ts": {
+    "count": 1
+  },
+  "packages/opencode/src/tool/webfetch.ts": {
+    "count": 1
+  },
+  "packages/opencode/src/tool/websearch.ts": {
+    "count": 1
+  },
+  "packages/opencode/src/util/process.ts": {
+    "count": 1
+  },
+  "packages/opencode/src/worktree/index.ts": {
+    "count": 1
+  },
+  "packages/tui/src/app.tsx": {
+    "count": 2
+  },
+  "packages/tui/src/attention.ts": {
+    "count": 3
+  },
+  "packages/tui/src/clipboard.ts": {
+    "count": 1
+  },
+  "packages/tui/src/component/dialog-model.tsx": {
+    "count": 5
+  },
+  "packages/tui/src/component/dialog-provider.tsx": {
+    "count": 11
+  },
+  "packages/tui/src/component/dialog-retry-action.tsx": {
+    "count": 1
+  },
+  "packages/tui/src/component/dialog-status.tsx": {
+    "count": 1
+  },
+  "packages/tui/src/component/error-component.tsx": {
+    "count": 4
+  },
+  "packages/tui/src/component/use-connected.tsx": {
+    "count": 1
+  },
+  "packages/tui/src/config/index.tsx": {
+    "count": 1
+  },
+  "packages/tui/src/config/keybind.ts": {
+    "count": 1
+  },
+  "packages/tui/src/context/editor.ts": {
+    "count": 1
+  },
+  "packages/tui/src/context/theme.tsx": {
+    "count": 6
+  },
+  "packages/tui/src/feature-plugins/home/tips-view.tsx": {
+    "count": 5
+  },
+  "packages/tui/src/feature-plugins/home/tips.tsx": {
+    "count": 1
+  },
+  "packages/tui/src/feature-plugins/sidebar/footer.tsx": {
+    "count": 1
+  },
+  "packages/tui/src/feature-plugins/system/diff-viewer.tsx": {
+    "count": 1
+  },
+  "packages/tui/src/keymap.tsx": {
+    "count": 2
+  },
+  "packages/tui/src/parsers-config.ts": {
+    "count": 2
+  },
+  "packages/tui/src/prompt/traits.ts": {
+    "count": 2
+  },
+  "packages/tui/src/routes/session/index.tsx": {
+    "count": 2
+  },
+  "packages/tui/src/theme/assets/aura.json": {
+    "count": 1
+  },
+  "packages/tui/src/theme/assets/ayu.json": {
+    "count": 1
+  },
+  "packages/tui/src/theme/assets/carbonfox.json": {
+    "count": 1
+  },
+  "packages/tui/src/theme/assets/catppuccin-frappe.json": {
+    "count": 1
+  },
+  "packages/tui/src/theme/assets/catppuccin-macchiato.json": {
+    "count": 1
+  },
+  "packages/tui/src/theme/assets/catppuccin.json": {
+    "count": 1
+  },
+  "packages/tui/src/theme/assets/cobalt2.json": {
+    "count": 1
+  },
+  "packages/tui/src/theme/assets/cursor.json": {
+    "count": 1
+  },
+  "packages/tui/src/theme/assets/dracula.json": {
+    "count": 1
+  },
+  "packages/tui/src/theme/assets/everforest.json": {
+    "count": 1
+  },
+  "packages/tui/src/theme/assets/flexoki.json": {
+    "count": 1
+  },
+  "packages/tui/src/theme/assets/github.json": {
+    "count": 1
+  },
+  "packages/tui/src/theme/assets/gruvbox.json": {
+    "count": 1
+  },
+  "packages/tui/src/theme/assets/kanagawa.json": {
+    "count": 1
+  },
+  "packages/tui/src/theme/assets/lucent-orng.json": {
+    "count": 1
+  },
+  "packages/tui/src/theme/assets/material.json": {
+    "count": 1
+  },
+  "packages/tui/src/theme/assets/matrix.json": {
+    "count": 1
+  },
+  "packages/tui/src/theme/assets/mercury.json": {
+    "count": 1
+  },
+  "packages/tui/src/theme/assets/monokai.json": {
+    "count": 1
+  },
+  "packages/tui/src/theme/assets/nightowl.json": {
+    "count": 1
+  },
+  "packages/tui/src/theme/assets/nord.json": {
+    "count": 1
+  },
+  "packages/tui/src/theme/assets/one-dark.json": {
+    "count": 1
+  },
+  "packages/tui/src/theme/assets/opencode.json": {
+    "count": 1
+  },
+  "packages/tui/src/theme/assets/orng.json": {
+    "count": 1
+  },
+  "packages/tui/src/theme/assets/osaka-jade.json": {
+    "count": 1
+  },
+  "packages/tui/src/theme/assets/palenight.json": {
+    "count": 1
+  },
+  "packages/tui/src/theme/assets/rosepine.json": {
+    "count": 1
+  },
+  "packages/tui/src/theme/assets/solarized.json": {
+    "count": 1
+  },
+  "packages/tui/src/theme/assets/synthwave84.json": {
+    "count": 1
+  },
+  "packages/tui/src/theme/assets/tokyonight.json": {
+    "count": 1
+  },
+  "packages/tui/src/theme/assets/vercel.json": {
+    "count": 1
+  },
+  "packages/tui/src/theme/assets/vesper.json": {
+    "count": 1
+  },
+  "packages/tui/src/theme/assets/zenburn.json": {
+    "count": 1
+  },
+  "packages/tui/src/theme/index.ts": {
+    "count": 2
+  },
+  "packages/tui/src/util/error.ts": {
+    "count": 2
+  },
+  "packages/tui/src/util/presentation.ts": {
+    "count": 1
+  },
+  "packages/ui/src/components/icon.tsx": {
+    "count": 2
+  },
+  "packages/ui/src/components/provider-icons/types.ts": {
+    "count": 2
+  },
+  "packages/ui/src/context/marked-theme-register.tsx": {
+    "count": 1
+  },
+  "packages/ui/src/context/marked-theme.tsx": {
+    "count": 1
+  },
+  "packages/ui/src/context/marked.tsx": {
+    "count": 2
+  },
+  "packages/ui/src/styles/theme.css": {
+    "count": 2
+  },
+  "packages/ui/src/theme/context.tsx": {
+    "count": 6
+  },
+  "packages/ui/src/theme/default-themes.ts": {
+    "count": 1
+  },
   "packages/ui/src/theme/desktop-theme.schema.json": {
+    "count": 3
+  },
+  "packages/ui/src/theme/loader.ts": {
     "count": 1
   },
   "packages/ui/src/theme/themes/amoled.json": {
@@ -153,7 +819,7 @@
     "count": 1
   },
   "packages/ui/src/theme/themes/oc-2.json": {
-    "count": 1
+    "count": 2
   },
   "packages/ui/src/theme/themes/one-dark.json": {
     "count": 1
@@ -162,7 +828,7 @@
     "count": 1
   },
   "packages/ui/src/theme/themes/opencode.json": {
-    "count": 1
+    "count": 2
   },
   "packages/ui/src/theme/themes/orng.json": {
     "count": 1
@@ -195,6 +861,18 @@
     "count": 1
   },
   "packages/ui/src/theme/themes/zenburn.json": {
+    "count": 1
+  },
+  "packages/ui/src/theme/v2/avatar.ts": {
+    "count": 1
+  },
+  "packages/ui/src/theme/v2/default-primitives.ts": {
+    "count": 1
+  },
+  "packages/ui/src/v2/components/icon.tsx": {
+    "count": 2
+  },
+  "packages/ui/src/v2/components/wordmark-v2.tsx": {
     "count": 1
   }
 }
