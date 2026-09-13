@@ -1,7 +1,17 @@
-import { For, Show, type Component, type JSX } from "solid-js"
+import { createResource, createSignal, For, Show, type Component, type JSX } from "solid-js"
 import { useLanguage } from "@/context/language"
 import { useSettings } from "@/context/settings"
-import { formatMaxPricePerQuery, parseMaxPricePerQuery, type RoutingPriorityKey } from "@/utils/routing-preferences"
+import { usePlatform } from "@/context/platform"
+import { useServerSDK } from "@/context/server-sdk"
+import {
+  DEFAULT_ROUTING_PRIORITIES,
+  formatMaxPricePerQuery,
+  parseMaxPricePerQuery,
+  softMaxPriorities,
+  type RoutingPriorities,
+  type RoutingPriorityKey,
+} from "@/utils/routing-preferences"
+import { isAutoBalance, loadPreferences, savePreferences } from "@/utils/routing-preferences-client"
 import { priceTier, ROUTABLE_MODELS } from "@/utils/routing-catalog"
 import "./routing-preferences.css"
 
@@ -51,8 +61,56 @@ export const RoutingPreferences: Component<{
 }> = (props) => {
   const language = useLanguage()
   const settings = useSettings()
+  const platform = usePlatform()
+  const serverSDK = useServerSDK()
   const routing = settings.routing
-  const manual = () => !routing.auto()
+
+  // The balance and the model list live on the engine, per account, so every surface
+  // sees the same settings. Verbosity and the price cap stay local until the engine
+  // can act on them.
+  const http = () => serverSDK().server.http
+  const doFetch = () => platform.fetch ?? fetch
+  const [remote, { mutate: setRemote }] = createResource(() => loadPreferences(http(), doFetch()))
+  const [pendingError, setPendingError] = createSignal<string | undefined>()
+
+  const priorities = (): RoutingPriorities => {
+    const r = remote()
+    if (!r?.reachable) return routing.priorities()
+    return { intelligence: r.intelligence, speed: r.speed, cost: r.cost }
+  }
+  const auto = () => isAutoBalance(priorities())
+  const connected = () => remote()?.reachable === true
+  const disabledModels = () => remote()?.disabledModels ?? []
+
+  const push = async (update: Partial<RoutingPriorities> & { disabledModels?: string[] }) => {
+    const saved = await savePreferences(http(), doFetch(), update).catch(() => undefined)
+    if (!saved) {
+      setPendingError(language.t("settings.routing.saveFailed"))
+      return
+    }
+    setPendingError(undefined)
+    setRemote(saved)
+  }
+
+  const setPriority = (key: RoutingPriorityKey, value: number) => {
+    const next = softMaxPriorities(priorities(), key, value)
+    // Optimistic: the slider must track the thumb, not the round trip.
+    setRemote((prev) => (prev ? { ...prev, ...next } : prev))
+    routing.setPriority(key, value)
+    void push(next)
+  }
+
+  const toggleAuto = () => {
+    if (auto()) return
+    setRemote((prev) => (prev ? { ...prev, ...DEFAULT_ROUTING_PRIORITIES } : prev))
+    void push(DEFAULT_ROUTING_PRIORITIES)
+  }
+
+  const setModelEnabled = (id: string, enabled: boolean) => {
+    const next = enabled ? disabledModels().filter((item) => item !== id) : [...disabledModels(), id]
+    setRemote((prev) => (prev ? { ...prev, disabledModels: next } : prev))
+    void push({ disabledModels: next })
+  }
 
   return (
     <>
@@ -67,9 +125,9 @@ export const RoutingPreferences: Component<{
               <button
                 type="button"
                 class="routing-preferences-auto-button"
-                aria-pressed={routing.auto()}
-                data-active={routing.auto() ? "true" : "false"}
-                onClick={() => routing.setAuto(!routing.auto())}
+                aria-pressed={auto()}
+                data-active={auto() ? "true" : "false"}
+                onClick={toggleAuto}
               >
                 {language.t("settings.routing.row.auto.button")}
               </button>
@@ -82,9 +140,8 @@ export const RoutingPreferences: Component<{
                 <div data-action={`settings-routing-${row.key}`}>
                   <PreferenceSlider
                     label={language.t(row.title)}
-                    value={routing.priorities()[row.key]}
-                    disabled={!manual()}
-                    onChange={(value) => routing.setPriority(row.key, value)}
+                    value={priorities()[row.key]}
+                    onChange={(value) => setPriority(row.key, value)}
                   />
                 </div>
               </props.Row>
@@ -124,6 +181,11 @@ export const RoutingPreferences: Component<{
           </props.Row>
         </props.List>
         <p class="routing-preferences-hint">{language.t("settings.routing.priorities.hint")}</p>
+        <Show when={pendingError()}>{(message) => <p class="routing-preferences-hint">{message()}</p>}</Show>
+        <Show when={remote() && !connected()}>
+          <p class="routing-preferences-hint">{language.t("settings.routing.offline")}</p>
+        </Show>
+        <p class="routing-preferences-hint">{language.t("settings.routing.localOnly")}</p>
       </div>
 
       <div class="flex flex-col gap-1">
@@ -143,9 +205,10 @@ export const RoutingPreferences: Component<{
                   </span>
                   <input
                     type="checkbox"
-                    checked={routing.modelEnabled(model.id)}
+                    checked={!disabledModels().includes(model.id)}
+                    disabled={!connected()}
                     aria-label={model.label}
-                    onChange={(event) => routing.setModelEnabled(model.id, event.currentTarget.checked)}
+                    onChange={(event) => setModelEnabled(model.id, event.currentTarget.checked)}
                   />
                 </div>
               </props.Row>

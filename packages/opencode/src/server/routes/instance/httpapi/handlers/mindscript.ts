@@ -92,6 +92,64 @@ async function fetchUsage(base: string, key: string, since: string | undefined):
   }
 }
 
+type Preferences = {
+  configured: boolean
+  reachable: boolean
+  intelligence: number
+  speed: number
+  cost: number
+  disabledModels: string[]
+  error?: string
+}
+
+// The engine calls the quality axis "quality"; the UI calls it intelligence.
+function preferencesFrom(body: Record<string, unknown>, base: Preferences): Preferences {
+  const weights = (body.weights ?? {}) as Record<string, unknown>
+  const disabled = body.disabledModelIds
+  return {
+    ...base,
+    reachable: true,
+    intelligence: num(weights.quality),
+    speed: num(weights.speed),
+    cost: num(weights.cost),
+    disabledModels: Array.isArray(disabled) ? disabled.filter((id): id is string => typeof id === "string") : [],
+  }
+}
+
+async function callPreferences(
+  base: string,
+  key: string,
+  update?: { intelligence?: number; speed?: number; cost?: number; disabledModels?: readonly string[] },
+): Promise<Preferences> {
+  const empty: Preferences = {
+    configured: true,
+    reachable: false,
+    intelligence: 0.5,
+    speed: 0.2,
+    cost: 0.3,
+    disabledModels: [],
+  }
+  try {
+    const response = await fetch(`${base}/v1/settings`, {
+      method: update ? "POST" : "GET",
+      headers: { authorization: `Bearer ${key}`, ...(update ? { "content-type": "application/json" } : {}) },
+      body: update
+        ? JSON.stringify({
+            quality: update.intelligence,
+            speed: update.speed,
+            cost: update.cost,
+            disabledModelIds: update.disabledModels ? [...update.disabledModels] : undefined,
+          })
+        : undefined,
+      signal: AbortSignal.timeout(5000),
+    })
+    if (!response.ok) return { ...empty, error: `engine answered ${response.status}` }
+    return preferencesFrom((await response.json()) as Record<string, unknown>, empty)
+  } catch (error) {
+    return { ...empty, error: error instanceof Error ? error.message : String(error) }
+  }
+}
+
 export const mindscriptHandlers = HttpApiBuilder.group(MindScriptApi, "mindscript", (handlers) =>
   Effect.gen(function* () {
     const usage = Effect.fn("MindScriptHttpApi.usage")(function* (ctx: { query: { since?: string } }) {
@@ -114,6 +172,30 @@ export const mindscriptHandlers = HttpApiBuilder.group(MindScriptApi, "mindscrip
       return yield* Effect.promise(() => fetchUsage(base, key, ctx.query.since))
     })
 
-    return handlers.handle("usage", usage)
+    const unconfigured = (): Preferences => ({
+      configured: false,
+      reachable: false,
+      intelligence: 0.5,
+      speed: 0.2,
+      cost: 0.3,
+      disabledModels: [],
+      error: "no MindScript API key (MINDSCRIPT_API_KEY or ~/.config/mindscript/api-key)",
+    })
+
+    const preferences = Effect.fn("MindScriptHttpApi.preferences")(function* () {
+      const key = apiKey()
+      if (!key) return unconfigured()
+      return yield* Effect.promise(() => callPreferences(gatewayBase(), key))
+    })
+
+    const setPreferences = Effect.fn("MindScriptHttpApi.setPreferences")(function* (ctx: {
+      payload: { intelligence?: number; speed?: number; cost?: number; disabledModels?: readonly string[] }
+    }) {
+      const key = apiKey()
+      if (!key) return unconfigured()
+      return yield* Effect.promise(() => callPreferences(gatewayBase(), key, ctx.payload))
+    })
+
+    return handlers.handle("usage", usage).handle("preferences", preferences).handle("setPreferences", setPreferences)
   }),
 )

@@ -33,8 +33,30 @@ export const MindScriptUsageQuery = Schema.Struct({
   since: Schema.optional(Schema.String),
 })
 
+/** Routing preferences live on the engine, per account, so every surface that talks to
+ *  the same engine key sees the same settings instead of a per-browser copy. */
+export const MindScriptPreferences = Schema.Struct({
+  configured: Schema.Boolean,
+  reachable: Schema.Boolean,
+  /** Relative pull of each axis; the engine normalises them, they need not total 1. */
+  intelligence: Schema.Number,
+  speed: Schema.Number,
+  cost: Schema.Number,
+  /** Model ids auto routing must skip. */
+  disabledModels: Schema.Array(Schema.String),
+  error: Schema.optional(Schema.String),
+}).annotate({ identifier: "MindScriptPreferences" })
+
+export const MindScriptPreferencesUpdate = Schema.Struct({
+  intelligence: Schema.optional(Schema.Number),
+  speed: Schema.optional(Schema.Number),
+  cost: Schema.optional(Schema.Number),
+  disabledModels: Schema.optional(Schema.Array(Schema.String)),
+})
+
 export const MindScriptPaths = {
   usage: "/mindscript/usage",
+  preferences: "/mindscript/preferences",
 } as const
 
 export const MindScriptApi = HttpApi.make("mindscript").add(
@@ -49,6 +71,29 @@ export const MindScriptApi = HttpApi.make("mindscript").add(
           summary: "Get MindScript usage",
           description:
             "Requests, cost and savings versus always using the premium model for the account behind this server's MindScript key, optionally since a point in time.",
+        }),
+      ),
+    )
+    .add(
+      HttpApiEndpoint.get("preferences", MindScriptPaths.preferences, {
+        success: described(MindScriptPreferences, "Routing preferences for this account"),
+      }).annotateMerge(
+        OpenApi.annotations({
+          identifier: "mindscript.preferences",
+          summary: "Get routing preferences",
+          description: "The account's intelligence/speed/cost balance and the models auto routing must skip.",
+        }),
+      ),
+    )
+    .add(
+      HttpApiEndpoint.post("setPreferences", MindScriptPaths.preferences, {
+        payload: MindScriptPreferencesUpdate,
+        success: described(MindScriptPreferences, "Routing preferences after the update"),
+      }).annotateMerge(
+        OpenApi.annotations({
+          identifier: "mindscript.setPreferences",
+          summary: "Set routing preferences",
+          description: "Updates the account's routing balance and disabled models on the engine.",
         }),
       ),
     )

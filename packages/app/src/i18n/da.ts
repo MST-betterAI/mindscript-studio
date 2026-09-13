@@ -1265,5 +1265,8 @@ export const dict = {
   "settings.routing.models.description": "Provided by {{provider}}.",
   "settings.routing.models.price": "Approximate price per request",
   "settings.routing.models.free": "FREE",
-  "settings.routing.notConnected": "Saved on this device. These preferences do not change routing yet.",
+  "settings.routing.notConnected": "Unticking an AI stops MindScript routing to it. Asking for a model by name still works.",
+  "settings.routing.localOnly": "Intelligence, speed, cost and the AI list are saved to your account and apply everywhere. Verbosity and the price cap are saved on this device only and do not change routing yet.",
+  "settings.routing.offline": "Cannot reach the MindScript engine, so these settings are not being saved.",
+  "settings.routing.saveFailed": "That change could not be saved to your account.",
 }
