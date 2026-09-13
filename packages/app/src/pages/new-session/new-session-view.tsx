@@ -39,10 +39,12 @@ export function NewSessionView(props: {
       >
         {/* mindscript_change: top-[25.375%] was tuned for a wide desktop/browser viewport —
             in a narrow container (the VS Code editor-tab panel) that leaves the input sitting
-            high with a large dead zone below it, instead of the roughly-centered position a
-            narrow chat column should have. True-center by default; restore the original fixed
-            offset once the container is wide enough for it to look intentional again. */}
-        <div class="absolute inset-x-0 top-1/2 -translate-y-1/2 flex justify-center px-6 @2xl:top-[25.375%] @2xl:translate-y-0">
+            high with a large dead zone below it. A first pass centered it, but the founder
+            wants it anchored near the bottom of the column, matching Claude/Codex-style panels
+            (an empty area above, prompt low in the column) rather than dead-centered. Restore
+            the original fixed offset once the container is wide enough for it to look
+            intentional again. */}
+        <div class="absolute inset-x-0 bottom-8 flex justify-center px-6 @2xl:top-[25.375%] @2xl:bottom-auto">
           <div class={NEW_SESSION_CONTENT_WIDTH}>
             <WordmarkV2 class="h-auto w-full text-v2-background-bg-inverse" />
             <div class="mt-8 flex flex-col gap-8">
