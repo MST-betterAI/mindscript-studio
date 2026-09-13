@@ -97,6 +97,53 @@
           "type": "number",
           "default": 0,
           "description": "Fixed server port. 0 = a stable port derived from the workspace path (keeps the panel's settings across restarts)."
+        },
+        "mindscript.routing.auto": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Let MindScript balance intelligence, speed and cost for each request. Turn this off to use the dials below. *Not connected to routing yet.*"
+        },
+        "mindscript.routing.intelligence": {
+          "type": "number",
+          "default": 0.5,
+          "minimum": 0,
+          "maximum": 1,
+          "markdownDescription": "How much to favour the most capable models, 0-1. Shares one budget with speed and cost. *Not connected to routing yet.*"
+        },
+        "mindscript.routing.speed": {
+          "type": "number",
+          "default": 0.2,
+          "minimum": 0,
+          "maximum": 1,
+          "markdownDescription": "How much to favour the fastest models, 0-1. Shares one budget with intelligence and cost. *Not connected to routing yet.*"
+        },
+        "mindscript.routing.cost": {
+          "type": "number",
+          "default": 0.3,
+          "minimum": 0,
+          "maximum": 1,
+          "markdownDescription": "How much to favour the cheapest models, 0-1. Shares one budget with intelligence and speed. *Not connected to routing yet.*"
+        },
+        "mindscript.routing.verbosity": {
+          "type": "number",
+          "default": 0.5,
+          "minimum": 0,
+          "maximum": 1,
+          "markdownDescription": "How much detail replies should include, 0-1. *Not connected to routing yet.*"
+        },
+        "mindscript.routing.maxPricePerQuery": {
+          "type": "number",
+          "default": 0,
+          "minimum": 0,
+          "markdownDescription": "The most MindScript may spend answering a single question, in USD. 0 = no limit. *Not connected to routing yet.*"
+        },
+        "mindscript.routing.disabledModels": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "markdownDescription": "Model ids MindScript may not route to. Everything not listed here stays available. *Not connected to routing yet.*"
         }
       }
     }

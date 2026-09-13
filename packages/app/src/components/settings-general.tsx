@@ -31,6 +31,7 @@ import { decode64 } from "@/utils/base64"
 import { playSoundById, SOUND_OPTIONS } from "@/utils/sound"
 import { ExternalLink } from "./external-link"
 import { SettingsList } from "./settings-list"
+import { RoutingPreferences } from "./routing-preferences"
 
 let demoSoundState = {
   cleanup: undefined as (() => void) | undefined,
@@ -757,6 +758,12 @@ export const SettingsGeneral: Component = () => {
         </Show>
 
         <GeneralSection />
+
+        <RoutingPreferences
+          List={SettingsList}
+          Row={SettingsRow}
+          heading={(title) => <h3 class="text-14-medium text-text-strong pb-2">{title}</h3>}
+        />
 
         <AppearanceSection />
 

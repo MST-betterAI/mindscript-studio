@@ -3,6 +3,13 @@ import { batch, createEffect, createMemo, createSignal, onCleanup } from "solid-
 import { createSimpleContext } from "@opencode-ai/ui/context"
 import { persisted } from "@/utils/persist"
 import { usePlatform } from "@/context/platform"
+import {
+  clamp01,
+  DEFAULT_ROUTING_PRIORITIES,
+  DEFAULT_VERBOSITY,
+  softMaxPriorities,
+  type RoutingPriorityKey,
+} from "@/utils/routing-preferences"
 
 export interface NotificationSettings {
   agent: boolean
@@ -17,6 +24,19 @@ export interface SoundSettings {
   permissions: string
   errorsEnabled: boolean
   errors: string
+}
+
+export interface RoutingSettings {
+  /** When true MindScript picks the trade-off itself and the dials below are ignored. */
+  auto: boolean
+  intelligence: number
+  speed: number
+  cost: number
+  verbosity: number
+  /** USD ceiling for a single query; null means no cap. */
+  maxPricePerQuery: number | null
+  /** Model ids the user has unchecked, so new models default to available. */
+  disabledModels: string[]
 }
 
 export interface Settings {
@@ -52,6 +72,7 @@ export interface Settings {
   }
   notifications: NotificationSettings
   sounds: SoundSettings
+  routing: RoutingSettings
 }
 
 export const monoDefault = "System Mono"
@@ -218,6 +239,15 @@ const defaultSettings: Settings = {
     permissions: "staplebops-02",
     errorsEnabled: true,
     errors: "nope-03",
+  },
+  routing: {
+    auto: true,
+    intelligence: DEFAULT_ROUTING_PRIORITIES.intelligence,
+    speed: DEFAULT_ROUTING_PRIORITIES.speed,
+    cost: DEFAULT_ROUTING_PRIORITIES.cost,
+    verbosity: DEFAULT_VERBOSITY,
+    maxPricePerQuery: null,
+    disabledModels: [],
   },
 }
 
@@ -457,6 +487,61 @@ export const { use: useSettings, provider: SettingsProvider } = createSimpleCont
         search: visible(showSearch),
         status: visible(showStatus),
         customAgents: visible(showCustomAgents),
+      },
+      routing: {
+        auto: withFallback(() => store.routing?.auto, defaultSettings.routing.auto),
+        setAuto(value: boolean) {
+          setStore("routing", "auto", value)
+        },
+        priorities: createMemo(() => ({
+          intelligence: clamp01(store.routing?.intelligence ?? defaultSettings.routing.intelligence),
+          speed: clamp01(store.routing?.speed ?? defaultSettings.routing.speed),
+          cost: clamp01(store.routing?.cost ?? defaultSettings.routing.cost),
+        })),
+        setPriority(key: RoutingPriorityKey, value: number) {
+          const next = softMaxPriorities(
+            {
+              intelligence: clamp01(store.routing?.intelligence ?? defaultSettings.routing.intelligence),
+              speed: clamp01(store.routing?.speed ?? defaultSettings.routing.speed),
+              cost: clamp01(store.routing?.cost ?? defaultSettings.routing.cost),
+            },
+            key,
+            value,
+          )
+          batch(() => {
+            setStore("routing", "intelligence", next.intelligence)
+            setStore("routing", "speed", next.speed)
+            setStore("routing", "cost", next.cost)
+          })
+        },
+        verbosity: withFallback(() => store.routing?.verbosity, defaultSettings.routing.verbosity),
+        setVerbosity(value: number) {
+          setStore("routing", "verbosity", clamp01(value))
+        },
+        maxPricePerQuery: withFallback(
+          () => store.routing?.maxPricePerQuery,
+          defaultSettings.routing.maxPricePerQuery,
+        ),
+        setMaxPricePerQuery(value: number | null) {
+          setStore("routing", "maxPricePerQuery", value)
+        },
+        modelEnabled: (id: string) => !(store.routing?.disabledModels ?? []).includes(id),
+        setModelEnabled(id: string, enabled: boolean) {
+          const disabled = store.routing?.disabledModels ?? []
+          if (enabled === !disabled.includes(id)) return
+          setStore("routing", "disabledModels", enabled ? disabled.filter((item) => item !== id) : [...disabled, id])
+        },
+        reset() {
+          batch(() => {
+            setStore("routing", "auto", defaultSettings.routing.auto)
+            setStore("routing", "intelligence", defaultSettings.routing.intelligence)
+            setStore("routing", "speed", defaultSettings.routing.speed)
+            setStore("routing", "cost", defaultSettings.routing.cost)
+            setStore("routing", "verbosity", defaultSettings.routing.verbosity)
+            setStore("routing", "maxPricePerQuery", defaultSettings.routing.maxPricePerQuery)
+            setStore("routing", "disabledModels", [])
+          })
+        },
       },
       appearance: {
         fontSize: withFallback(() => store.appearance?.fontSize, defaultSettings.appearance.fontSize),

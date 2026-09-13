@@ -12,6 +12,7 @@ import { useSettings } from "@/context/settings"
 import { ExternalLink } from "../external-link"
 import { SettingsListV2 } from "./parts/list"
 import { SettingsRowV2 } from "./parts/row"
+import { RoutingPreferences } from "../routing-preferences"
 import { LayoutRetirementNotice, LayoutTransitionToggle } from "./interface-transition"
 import {
   createAppearanceSettingsController,
@@ -551,6 +552,14 @@ export const SettingsGeneralV2: Component<{
         </Show>
 
         <GeneralSection />
+
+        <div class="settings-v2-section">
+          <RoutingPreferences
+            List={SettingsListV2}
+            Row={SettingsRowV2}
+            heading={(title) => <h3 class="settings-v2-section-title">{title}</h3>}
+          />
+        </div>
 
         <AppearanceSection controller={appearance} />
 
