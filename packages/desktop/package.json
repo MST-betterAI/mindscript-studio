@@ -4,10 +4,10 @@
   "version": "1.18.30",
   "type": "module",
   "license": "MIT",
-  "homepage": "https://opencode.ai",
+  "homepage": "https://github.com/MST-betterAI/mindscript-studio",
   "author": {
-    "name": "OpenCode",
-    "email": "hello@opencode.ai"
+    "name": "MindScript",
+    "email": "support@mindscript.ai"
   },
   "scripts": {
     "typecheck": "tsgo -b",
