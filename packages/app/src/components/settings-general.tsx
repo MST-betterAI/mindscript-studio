@@ -460,7 +460,7 @@ export const SettingsGeneral: Component = () => {
           description={
             <>
               {language.t("settings.general.row.theme.description")}{" "}
-              <ExternalLink href="https://opencode.ai/docs/themes/">{language.t("common.learnMore")}</ExternalLink>
+              <ExternalLink href="https://github.com/MST-betterAI/mindscript-studio#readme">{language.t("common.learnMore")}</ExternalLink>
             </>
           }
         >

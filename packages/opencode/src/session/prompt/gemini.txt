@@ -61,7 +61,7 @@ When requested to perform tasks like fixing bugs, adding features, refactoring, 
 
 ## Interaction Details
 - **Help Command:** The user can use '/help' to display help information.
-- **Feedback:** To report a bug or provide feedback, please use the /bug command.
+- **Feedback:** To report a bug or provide feedback, ask the user to contact whoever set up MindScript for them.
 
 # Examples (Illustrating Tone and Workflow)
 <example>

@@ -349,14 +349,13 @@ describe("session.retry.retryable", () => {
     )
 
     expect(SessionRetry.retryable(error, "opencode")).toEqual({
-      message: SessionRetry.GO_UPSELL_MESSAGE,
+      message: SessionRetry.FREE_LIMIT_MESSAGE,
       action: {
         reason: "free_tier_limit",
         provider: "opencode",
         title: "Free limit reached",
-        message: "Subscribe to OpenCode Go for reliable access to the best open-source models for $10/month.",
-        label: "subscribe",
-        link: SessionRetry.GO_UPSELL_URL,
+        message: "This provider's free usage limit has been reached. Switch provider, or use MindScript routing.",
+        label: "manage providers",
       },
     })
   })

@@ -7,7 +7,7 @@ import { Process } from "@/util/process"
 
 export const PrCommand = effectCmd({
   command: "pr <number>",
-  describe: "fetch and checkout a GitHub PR branch, then run opencode",
+  describe: "fetch and checkout a GitHub PR branch, then run mindscript",
   builder: (yargs) =>
     yargs.positional("number", {
       type: "number",
@@ -95,7 +95,7 @@ export const PrCommand = effectCmd({
 
     UI.println(`Successfully checked out PR #${prNumber} as branch '${localBranchName}'`)
     UI.println()
-    UI.println("Starting opencode...")
+    UI.println("Starting MindScript Studio...")
     UI.println()
 
     const opencodeArgs = sessionId ? ["-s", sessionId] : []

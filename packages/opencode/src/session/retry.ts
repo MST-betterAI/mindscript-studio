@@ -7,8 +7,8 @@ import { isRecord } from "@/util/record"
 
 export type Err = ReturnType<NamedError["toObject"]>
 
-export const GO_UPSELL_MESSAGE = "Free usage exceeded, subscribe to Go"
-export const GO_UPSELL_URL = "https://opencode.ai/go"
+// mindscript_change: upstream advertised its own $10/month subscription here.
+export const FREE_LIMIT_MESSAGE = "This provider's free usage limit has been reached"
 export type RetryReason = "free_tier_limit" | "account_rate_limit" | (string & {})
 
 export type Retryable = {
@@ -98,14 +98,13 @@ export function retryable(error: Err, provider: string) {
       return undefined
     if (error.data.responseBody?.includes("FreeUsageLimitError")) {
       return {
-        message: GO_UPSELL_MESSAGE,
+        message: FREE_LIMIT_MESSAGE,
         action: {
           reason: "free_tier_limit",
           provider,
           title: "Free limit reached",
-          message: "Subscribe to OpenCode Go for reliable access to the best open-source models for $10/month.",
-          label: "subscribe",
-          link: GO_UPSELL_URL,
+          message: "This provider's free usage limit has been reached. Switch provider, or use MindScript routing.",
+          label: "manage providers",
         },
       }
     }
