@@ -130,6 +130,20 @@ function getSystemMode(): "light" | "dark" {
   return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"
 }
 
+// mindscript_change: an embedding host (the VS Code extension's webview) can pass its own
+// current theme via ?vscode_theme=dark|light, same convention as oc-theme-preload.js. That
+// preload script only prevents an initial flash-of-wrong-theme before this module loads —
+// THIS provider is what actually drives ongoing styling, and previously re-derived the mode
+// from localStorage/matchMedia on its own with no awareness of the override, silently
+// undoing it moments after mount (the reported "white column" persisted even with a
+// ?vscode_theme=dark URL). Checked at both init and onMount's re-sync, matching where
+// STORAGE_KEYS.COLOR_SCHEME is read in each.
+function hostThemeOverride(): "dark" | "light" | undefined {
+  if (typeof location !== "object") return undefined
+  const value = new URLSearchParams(location.search).get("vscode_theme")
+  return value === "dark" || value === "light" ? value : undefined
+}
+
 function applyThemeCss(theme: DesktopTheme, themeId: string, mode: "light" | "dark") {
   const isDark = mode === "dark"
   const variant = isDark ? theme.dark : theme.light
@@ -178,7 +192,7 @@ export const { use: useTheme, provider: ThemeProvider } = createSimpleContext({
     onThemeApplied?: (theme: DesktopTheme, mode: "light" | "dark", scheme: ColorScheme) => void
   }) => {
     const themeId = normalize(read(STORAGE_KEYS.THEME_ID) ?? props.defaultTheme) ?? "oc-2"
-    const colorScheme = (read(STORAGE_KEYS.COLOR_SCHEME) as ColorScheme | null) ?? "system"
+    const colorScheme = hostThemeOverride() ?? (read(STORAGE_KEYS.COLOR_SCHEME) as ColorScheme | null) ?? "system"
     const mode = colorScheme === "system" ? getSystemMode() : colorScheme
     const [store, setStore] = createStore({
       themes: {
@@ -264,7 +278,7 @@ export const { use: useTheme, provider: ThemeProvider } = createSimpleContext({
 
       const rawTheme = read(STORAGE_KEYS.THEME_ID)
       const savedTheme = normalize(rawTheme ?? props.defaultTheme) ?? "oc-2"
-      const savedScheme = (read(STORAGE_KEYS.COLOR_SCHEME) as ColorScheme | null) ?? "system"
+      const savedScheme = hostThemeOverride() ?? (read(STORAGE_KEYS.COLOR_SCHEME) as ColorScheme | null) ?? "system"
       if (rawTheme && rawTheme !== savedTheme) {
         write(STORAGE_KEYS.THEME_ID, savedTheme)
         clear()

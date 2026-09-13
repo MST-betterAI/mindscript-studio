@@ -37,7 +37,12 @@ export function NewSessionView(props: {
         data-component="session-new-design"
         class="relative flex-1 min-h-0 overflow-hidden rounded-[10px] bg-v2-background-bg-deep"
       >
-        <div class="absolute inset-x-0 top-[25.375%] flex justify-center px-6">
+        {/* mindscript_change: top-[25.375%] was tuned for a wide desktop/browser viewport —
+            in a narrow container (the VS Code editor-tab panel) that leaves the input sitting
+            high with a large dead zone below it, instead of the roughly-centered position a
+            narrow chat column should have. True-center by default; restore the original fixed
+            offset once the container is wide enough for it to look intentional again. */}
+        <div class="absolute inset-x-0 top-1/2 -translate-y-1/2 flex justify-center px-6 @2xl:top-[25.375%] @2xl:translate-y-0">
           <div class={NEW_SESSION_CONTENT_WIDTH}>
             <WordmarkV2 class="h-auto w-full text-v2-background-bg-inverse" />
             <div class="mt-8 flex flex-col gap-8">

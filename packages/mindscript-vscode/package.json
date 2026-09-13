@@ -67,7 +67,7 @@
     ],
     "menus": {
       "editor/title": [
-        { "command": "mindscript.openInTab", "group": "navigation" }
+        { "command": "mindscript.openInTab", "group": "navigation", "icon": "media/icon.svg" }
       ],
       "editor/context": [
         { "command": "mindscript.addToPrompt", "group": "mindscript@1" }
