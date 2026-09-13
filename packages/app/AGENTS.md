@@ -9,7 +9,8 @@
 
 ## Local Dev
 
-- `opencode dev web` proxies `https://app.opencode.ai`, so local UI/CSS changes will not show there.
+- The server only serves the UI bundle embedded at build time, and answers 503 if it is absent. It
+  never fetches the UI over the network, so a stale binary shows stale UI.
 - For local UI changes, run the backend and app dev servers separately.
 - Backend (from `packages/opencode`): `bun run ./src/index.ts serve --port 4096`
 - App (from `packages/app`): `bun dev -- --port 4444`
