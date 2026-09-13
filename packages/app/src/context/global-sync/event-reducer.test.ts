@@ -485,6 +485,44 @@ describe("applyDirectoryEvent", () => {
     expect(store.part[messageID]).toBeUndefined()
   })
 
+  // Regression: step-finish parts carry the MindScript engine's per-step routing metadata
+  // (metadata.mindscript — model, cost, savings), read by session-context-tab.tsx's MindScript
+  // panel and the composer's "currently active model" indicator. These were being silently
+  // dropped by the same skip list that (correctly) still drops step-start and patch, which have
+  // no client-side use — so neither feature could ever show real data, live or on reload.
+  test("keeps step-finish parts (MindScript step metadata) but still skips step-start and patch", () => {
+    const sessionID = "ses_1"
+    const messageID = "msg_1"
+    const [store, setStore] = createStore(baseState())
+
+    const stepFinish = {
+      id: "prt_finish",
+      sessionID,
+      messageID,
+      type: "step-finish",
+      metadata: { mindscript: { model: "claude-sonnet-5", effective_cost_usd: 0.01 } },
+    } as unknown as Part
+    const stepStart = { id: "prt_start", sessionID, messageID, type: "step-start" } as unknown as Part
+    const patch = { id: "prt_patch", sessionID, messageID, type: "patch" } as unknown as Part
+
+    for (const part of [stepFinish, stepStart, patch]) {
+      applyDirectoryEvent({
+        event: { type: "message.part.updated", properties: { part } },
+        store,
+        setStore,
+        push() {},
+        directory: "/tmp",
+        loadLsp() {},
+      })
+    }
+
+    expect(store.part[messageID]?.map((x) => x.id)).toEqual(["prt_finish"])
+    const kept = store.part[messageID]?.find((x) => x.id === "prt_finish")
+    expect((kept as unknown as { metadata?: { mindscript?: { model?: string } } })?.metadata?.mindscript?.model).toBe(
+      "claude-sonnet-5",
+    )
+  })
+
   test("tracks permission and question request lifecycles", () => {
     const sessionID = "ses_1"
     const [store, setStore] = createStore(

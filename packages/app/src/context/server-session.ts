@@ -26,7 +26,12 @@ import type { ServerApi } from "@/utils/server"
 type MessageApi = ServerApi["message"]
 
 const cmp = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0)
-const SKIP_PARTS = new Set(["patch", "step-start", "step-finish"])
+// mindscript_change: see the matching comment in context/global-sync/event-reducer.ts — this
+// is a second, independent copy of the same skip list (this one drives the "new layout"
+// server-scoped session loader). step-finish carries the MindScript engine's per-step routing
+// metadata; dropping it here silently broke the same two features for any session reached via
+// this loader specifically, regardless of the other copy being fixed.
+const SKIP_PARTS = new Set(["patch", "step-start"])
 const initialMessagePageSize = 20
 const historyMessagePageSize = 200
 const sessionInfoLimit = 2_048

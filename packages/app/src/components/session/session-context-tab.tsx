@@ -18,6 +18,7 @@ import { useLanguage } from "@/context/language"
 import { useProviders } from "@/hooks/use-providers"
 import { useSDK } from "@/context/sdk"
 import { useSessionLayout } from "@/pages/session/session-layout"
+import { mindscriptModelLabel, mindscriptSteps, readShowModels, SHOW_MODELS_KEY } from "@/utils/mindscript-steps"
 import { getSessionContext } from "./session-context-metrics"
 import { estimateSessionContextBreakdown, type SessionContextBreakdownKey } from "./session-context-breakdown"
 import { createSessionContextFormatter } from "./session-context-format"
@@ -94,48 +95,6 @@ function RawMessage(props: {
 const emptyMessages: Message[] = []
 const emptyUserMessages: UserMessage[] = []
 
-// mindscript_change: what the MindScript engine did on every step of this session.
-// Data comes from the gateway's `x_orchestrator` metadata, kept on step-finish parts.
-type MindScriptStep = {
-  messageID: string
-  model: string
-  routed: string
-  fingerprint: string
-  cost: number
-  savings: number
-  baseline: number
-}
-const SHOW_MODELS_KEY = "mindscript.showModelNames"
-function readShowModels(): boolean {
-  try {
-    return localStorage.getItem(SHOW_MODELS_KEY) !== "false"
-  } catch {
-    return true
-  }
-}
-function mindscriptSteps(messages: Message[], getParts: (id: string) => Part[]): MindScriptStep[] {
-  const out: MindScriptStep[] = []
-  for (const message of messages) {
-    if (message.role !== "assistant") continue
-    for (const part of getParts(message.id)) {
-      if (part.type !== "step-finish") continue
-      const meta = (part as unknown as { metadata?: { mindscript?: Record<string, unknown> } }).metadata?.mindscript
-      if (!meta) continue
-      const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : 0)
-      out.push({
-        messageID: message.id,
-        model: typeof meta.model === "string" ? meta.model : "?",
-        routed: typeof meta.routed === "string" ? meta.routed : "?",
-        fingerprint: typeof meta.fingerprint === "string" ? meta.fingerprint : "",
-        cost: num(meta.effective_cost_usd),
-        savings: num(meta.savings_vs_premium_usd),
-        baseline: num(meta.premium_baseline_cost_usd),
-      })
-    }
-  }
-  return out
-}
-
 export function MindScriptSection(props: { messages: Message[]; getParts: (id: string) => Part[] }) {
   const language = useLanguage()
   const [showModels, setShowModels] = createSignal(readShowModels())
@@ -150,8 +109,7 @@ export function MindScriptSection(props: { messages: Message[]; getParts: (id: s
     return { cost, savings, baseline, steps: s.length, models: [...models.entries()].sort((a, b) => b[1] - a[1]) }
   })
   const usd = createMemo(() => new Intl.NumberFormat(language.intl(), { style: "currency", currency: "USD", maximumFractionDigits: 4 }))
-  const tier = (model: string) => (/fable|opus|gpt-6|astra/i.test(model) ? "premium" : /haiku|mini|flash|4\.1/i.test(model) ? "fast" : "standard")
-  const label = (model: string) => (showModels() ? model : tier(model))
+  const label = (model: string) => mindscriptModelLabel(model, showModels())
   const toggle = () => {
     const next = !showModels()
     setShowModels(next)

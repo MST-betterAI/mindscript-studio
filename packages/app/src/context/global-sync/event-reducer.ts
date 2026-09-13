@@ -17,7 +17,15 @@ import { dropSessionCaches } from "./session-cache"
 import { diffs as list, message as clean } from "@/utils/diffs"
 import { messageKey } from "@/utils/session-message"
 
-const SKIP_PARTS = new Set(["patch", "step-start", "step-finish"])
+// mindscript_change: "step-finish" used to be skipped here along with "patch"/"step-start" —
+// harmless upstream, since stock OpenCode has no use for it client-side. But the MindScript
+// panel's per-step model/cost breakdown (session-context-tab.tsx's MindScriptSection) AND the
+// composer's "currently active model" indicator both read step-finish parts' `metadata.mindscript`
+// out of this exact store — with it skipped, that data could never reach either feature at all,
+// live or on reload. The timeline's own row-building step (rows.ts) already filters parts down to
+// visually-relevant types independently, so keeping step-finish in the store doesn't add a stray
+// row to the message view; only the two consumers above ever look for it.
+const SKIP_PARTS = new Set(["patch", "step-start"])
 const SESSION_CONTENT_EVENTS = new Set([
   "session.diff",
   "todo.updated",

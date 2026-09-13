@@ -1368,6 +1368,31 @@ describe("server session", () => {
     expect(store.data.part[message.id]).toEqual([])
   })
 
+  // Regression: step-finish parts carry the MindScript engine's per-step routing metadata
+  // (metadata.mindscript — model, cost, savings), read by the MindScript panel and the
+  // composer's "currently active model" indicator. This loader's own copy of the skip list
+  // was silently dropping step-finish during history sync, same bug as event-reducer.ts —
+  // neither feature could ever show real data for a session reached this way.
+  test("keeps step-finish parts (MindScript step metadata) from history sync", async () => {
+    const message = userMessage("message")
+    const stepFinish = {
+      id: "part-finish",
+      sessionID: "child",
+      messageID: message.id,
+      type: "step-finish" as const,
+      metadata: { mindscript: { model: "claude-sonnet-5", effective_cost_usd: 0.01 } },
+    } as unknown as Part
+    const store = createServerSession(messageClient(response([{ info: message, parts: [stepFinish] }])))
+
+    await store.sync("child")
+
+    expect(store.data.part[message.id]?.map((p) => p.id)).toEqual(["part-finish"])
+    const kept = store.data.part[message.id]?.[0]
+    expect((kept as unknown as { metadata?: { mindscript?: { model?: string } } })?.metadata?.mindscript?.model).toBe(
+      "claude-sonnet-5",
+    )
+  })
+
   test("clears stale delta buffers when replacing optimistic parts", () => {
     const message = userMessage("message")
     const stale = textPart(message.id, { id: "stale", text: "stale" })

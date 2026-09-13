@@ -5,7 +5,10 @@ import { useSDK } from "./sdk"
 import type { Message, Part } from "@opencode-ai/sdk/v2/client"
 import { messageKey } from "@/utils/session-message"
 
-const SKIP_PARTS = new Set(["patch", "step-start", "step-finish"])
+// mindscript_change: unused in this file (kept for parity with the other two copies of this
+// list — event-reducer.ts and server-session.ts, both actually used and both fixed to keep
+// step-finish, which carries the MindScript engine's per-step routing metadata).
+const SKIP_PARTS = new Set(["patch", "step-start"])
 
 function sortParts(parts: Part[]) {
   return parts.filter((part) => !!part?.id).sort((a, b) => cmp(a.id, b.id))
