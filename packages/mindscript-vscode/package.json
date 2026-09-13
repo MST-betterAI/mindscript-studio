@@ -58,7 +58,7 @@
     },
     "commands": [
       { "command": "mindscript.open", "title": "MindScript: Open Studio" },
-      { "command": "mindscript.openInTab", "title": "MindScript: Open Studio in an Editor Tab" },
+      { "command": "mindscript.openInTab", "title": "MindScript: Open Studio in an Editor Tab", "icon": "media/icon.svg" },
       { "command": "mindscript.newSession", "title": "MindScript: New Session" },
       { "command": "mindscript.addToPrompt", "title": "MindScript: Add File / Selection to the Prompt" },
       { "command": "mindscript.copyReference", "title": "MindScript: Copy File Reference" },
@@ -67,7 +67,11 @@
     ],
     "menus": {
       "editor/title": [
-        { "command": "mindscript.openInTab", "group": "navigation", "icon": "media/icon.svg" }
+        {
+          "command": "mindscript.openInTab",
+          "group": "navigation",
+          "when": "activeWebviewPanelId == 'mindscript.tab'"
+        }
       ],
       "editor/context": [
         { "command": "mindscript.addToPrompt", "group": "mindscript@1" }
