@@ -69,8 +69,7 @@
       "editor/title": [
         {
           "command": "mindscript.openInTab",
-          "group": "navigation",
-          "when": "activeWebviewPanelId == 'mindscript.tab'"
+          "group": "navigation"
         }
       ],
       "editor/context": [
