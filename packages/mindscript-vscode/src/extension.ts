@@ -18,11 +18,26 @@ function workspaceDirectory(): string | undefined {
   return folders[0]?.uri.fsPath
 }
 
+// mindscript_change: the embedded Studio UI otherwise picks light/dark from the OS-level
+// `prefers-color-scheme` media query, which can easily disagree with VS Code's own theme
+// (e.g. macOS in Light Mode, VS Code in a dark theme) — reported as a jarring white panel
+// inside an otherwise dark editor. `activeColorTheme.kind` is VS Code's own authoritative
+// answer, passed through as `?vscode_theme=` (see oc-theme-preload.js's override check).
+function vscodeThemeParam(): "dark" | "light" {
+  switch (vscode.window.activeColorTheme.kind) {
+    case vscode.ColorThemeKind.Dark:
+    case vscode.ColorThemeKind.HighContrast:
+      return "dark"
+    default:
+      return "light"
+  }
+}
+
 /** The web UI addresses a project by the base64url of its absolute path. */
 function appUrl(info: ServerInfo, directory: string, route = "/session"): string {
   const dir = Buffer.from(directory).toString("base64url")
   const token = Buffer.from(`${info.username}:${info.password}`).toString("base64")
-  return `${info.url}/${dir}${route}?auth_token=${encodeURIComponent(token)}`
+  return `${info.url}/${dir}${route}?auth_token=${encodeURIComponent(token)}&vscode_theme=${vscodeThemeParam()}`
 }
 
 /** A message the extension pushes into the Studio UI (see packages/app: pages/session.tsx). */

@@ -9,7 +9,14 @@
     localStorage.removeItem("opencode-theme-css-dark")
   }
 
-  var scheme = localStorage.getItem("opencode-color-scheme") || "system"
+  // mindscript_change: an embedding host (the VS Code extension's webview) can pass its
+  // own current theme explicitly via ?vscode_theme=dark|light, so this app matches the
+  // host's ACTUAL theme instead of guessing from the OS-level prefers-color-scheme media
+  // query — those two easily disagree (e.g. macOS set to Light Mode, VS Code set to a dark
+  // theme), which previously showed a jarring white panel inside an otherwise dark editor.
+  var hostTheme = new URLSearchParams(location.search).get("vscode_theme")
+  var scheme =
+    hostTheme === "dark" || hostTheme === "light" ? hostTheme : localStorage.getItem("opencode-color-scheme") || "system"
   var isDark = scheme === "dark" || (scheme === "system" && matchMedia("(prefers-color-scheme: dark)").matches)
   var mode = isDark ? "dark" : "light"
 

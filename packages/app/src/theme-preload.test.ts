@@ -43,4 +43,43 @@ describe("theme preload", () => {
     expect(document.documentElement.dataset.theme).toBe("nightowl")
     expect(document.getElementById("oc-theme-preload")?.textContent).toContain("--background-base:#fff;")
   })
+
+  test("an embedding host's ?vscode_theme=dark overrides OS/localStorage preference", () => {
+    // No stored preference, and matchMedia (OS-level) says light — without the override this
+    // would resolve to light, exactly the VS Code editor-tab bug (dark VS Code theme, light OS
+    // appearance) that motivated this parameter.
+    Object.defineProperty(window, "location", {
+      value: { search: "?vscode_theme=dark" },
+      configurable: true,
+    })
+
+    run()
+
+    expect(document.documentElement.dataset.colorScheme).toBe("dark")
+    expect(document.documentElement.style.backgroundColor).toBe("#080808")
+  })
+
+  test("an embedding host's ?vscode_theme=light overrides a stored dark preference", () => {
+    localStorage.setItem("opencode-color-scheme", "dark")
+    Object.defineProperty(window, "location", {
+      value: { search: "?vscode_theme=light" },
+      configurable: true,
+    })
+
+    run()
+
+    expect(document.documentElement.dataset.colorScheme).toBe("light")
+  })
+
+  test("an invalid vscode_theme value falls back to the normal stored/OS logic", () => {
+    localStorage.setItem("opencode-color-scheme", "dark")
+    Object.defineProperty(window, "location", {
+      value: { search: "?vscode_theme=purple" },
+      configurable: true,
+    })
+
+    run()
+
+    expect(document.documentElement.dataset.colorScheme).toBe("dark")
+  })
 })
