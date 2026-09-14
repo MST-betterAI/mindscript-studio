@@ -696,6 +696,8 @@ export const dict = {
   "session.review.toggleCount": "{{count}} changed",
   "session.review.toggleBack": "session",
   "session.review.backToConversation": "Back to conversation",
+  "dialog.routing.title": "Models this conversation can use",
+  "dialog.routing.description": "Everything is on by default. Untick a model to keep the engine from routing to it.",
   "session.review.change.one": "Change",
   "session.review.change.other": "Changes",
   "session.review.loadingChanges": "Loading changes...",

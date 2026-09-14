@@ -117,6 +117,12 @@ export const { use: useModels, provider: ModelsProvider } = createSimpleContext(
       const state = visibility().get(key)
       if (state === "hide") return false
       if (state === "show") return true
+      // mindscript_change: "Premium" is not a better Auto - it pins every request to one fixed
+      // model and does no routing at all, which is the thing Auto exists to beat on cost. The
+      // name invites exactly the wrong choice, so it is out of the picker by default. It stays
+      // resolvable by id (`mindscript/premium`) for pinned comparison arms, and anyone who wants
+      // it back can unhide it like any other model.
+      if (key === modelKey({ providerID: "mindscript", modelID: "premium" })) return false
       if (latestSet().has(key)) return true
       const date = release().get(key)
       if (!date?.isValid) return true
