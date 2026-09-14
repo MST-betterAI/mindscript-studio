@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { buildHomeSessionRecords } from "./home-session-records"
+import { buildHomeSessionRecords, homePlaceholder } from "./home-session-records"
 
 const session = (id: string, directory: string, updated = 1) =>
   ({
@@ -79,5 +79,21 @@ describe("home session records", () => {
       projects: [],
     })
     expect(records.map((r: { session: { id: string } }) => r.session.id)).toEqual(["ses_b", "ses_a"])
+  })
+})
+
+describe("homePlaceholder", () => {
+  test("a failed load is never reported as emptiness", () => {
+    expect(homePlaceholder({ failed: true, filtered: false })).toBe("error")
+    // even while a filter is active - the filter cannot be blamed for data we failed to fetch
+    expect(homePlaceholder({ failed: true, filtered: true })).toBe("error")
+  })
+
+  test("an active filter means none here, not none at all", () => {
+    expect(homePlaceholder({ failed: false, filtered: true })).toBe("filtered-empty")
+  })
+
+  test("only a clean, unfiltered, empty load is the new-user state", () => {
+    expect(homePlaceholder({ failed: false, filtered: false })).toBe("empty")
   })
 })

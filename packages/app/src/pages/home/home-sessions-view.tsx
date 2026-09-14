@@ -1,7 +1,8 @@
 import type { Session } from "@opencode-ai/sdk/v2/client"
-import { type Accessor, createMemo, For, Show, Suspense } from "solid-js"
+import { type Accessor, type ComponentProps, createMemo, For, Match, Show, Suspense, Switch } from "solid-js"
 import { Spinner } from "@opencode-ai/ui/spinner"
 import { ScrollView } from "@opencode-ai/ui/scroll-view"
+import { homePlaceholder } from "./home-session-records"
 import { ButtonV2 } from "@opencode-ai/ui/v2/button-v2"
 import { Icon as IconV2 } from "@opencode-ai/ui/v2/icon"
 import { IconButtonV2 } from "@opencode-ai/ui/v2/icon-button-v2"
@@ -42,6 +43,12 @@ export type HomeSessionsViewProps = {
   showProjectName: Accessor<boolean>
   server: Accessor<ServerConnection.Key>
   canCreateSession: Accessor<boolean>
+  failed: Accessor<boolean>
+  failure: Accessor<string>
+  onRetry: () => void
+  filtered: Accessor<boolean>
+  filterName: Accessor<string>
+  onClearFilter: () => void
   searchValue: Accessor<string>
   searchPlaceholder: Accessor<string>
   searchOpen: Accessor<boolean>
@@ -115,7 +122,13 @@ export function HomeSessionsView(props: HomeSessionsViewProps) {
           <Show
             when={props.groups().length > 0}
             fallback={
-              <HomeSessionsEmpty
+              <HomeSessionsPlaceholder
+                failed={props.failed}
+                failure={props.failure}
+                onRetry={props.onRetry}
+                filtered={props.filtered}
+                filterName={props.filterName}
+                onClearFilter={props.onClearFilter}
                 onNewSession={props.canCreateSession() ? props.onCreateSession : undefined}
                 language={props.language}
               />
@@ -503,6 +516,82 @@ function HomeSessionProjectName(props: { name: string; search?: boolean }) {
     >
       {props.name}
     </span>
+  )
+}
+
+// mindscript_change: an empty list has four causes and only one of them means "you are new".
+// Showing the new-user copy for all four is what told a user with real conversations that they
+// had none. Order matters: a failed load must never be reported as emptiness, and a filter that
+// matches nothing must say so rather than deny the data exists.
+function HomeSessionsPlaceholder(props: {
+  failed: () => boolean
+  failure: () => string
+  onRetry: () => void
+  filtered: () => boolean
+  filterName: () => string
+  onClearFilter: () => void
+  onNewSession?: () => void
+  language: ReturnType<typeof useLanguage>
+}) {
+  return (
+    <Switch fallback={<HomeSessionsEmpty onNewSession={props.onNewSession} language={props.language} />}>
+      <Match when={homePlaceholder({ failed: props.failed(), filtered: props.filtered() }) === "error"}>
+        <HomeSessionsNotice
+          title={props.language.t("home.sessions.failed")}
+          description={props.failure()}
+          actionLabel={props.language.t("home.sessions.failed.retry")}
+          actionIcon="outline-reset"
+          onAction={props.onRetry}
+        />
+      </Match>
+      <Match when={homePlaceholder({ failed: props.failed(), filtered: props.filtered() }) === "filtered-empty"}>
+        <HomeSessionsNotice
+          title={props.language.t("home.sessions.filtered.empty", { project: props.filterName() })}
+          description={props.language.t("home.sessions.filtered.empty.description")}
+          actionLabel={props.language.t("home.sessions.filtered.clear")}
+          actionIcon="xmark-small"
+          onAction={props.onClearFilter}
+        />
+      </Match>
+    </Switch>
+  )
+}
+
+function HomeSessionsNotice(props: {
+  title: string
+  description: string
+  actionLabel: string
+  actionIcon: ComponentProps<typeof ButtonV2>["icon"]
+  onAction: () => void
+}) {
+  return (
+    <div class="flex min-h-full flex-col items-center gap-4 px-6 pt-[52px] text-center">
+      <div
+        class={`
+          shrink-0 text-[13px] leading-[13px] tracking-[-0.04px]
+          text-v2-text-text-base [font-weight:530]
+        `}
+      >
+        {props.title}
+      </div>
+      <p
+        class={`
+          mb-1 text-center text-[13px] leading-5 tracking-[-0.04px]
+          text-v2-text-text-muted [font-weight:440]
+        `}
+      >
+        {props.description}
+      </p>
+      <ButtonV2
+        data-action="home-sessions-notice-action"
+        variant="neutral"
+        size="normal"
+        icon={props.actionIcon}
+        onClick={props.onAction}
+      >
+        {props.actionLabel}
+      </ButtonV2>
+    </div>
   )
 }
 

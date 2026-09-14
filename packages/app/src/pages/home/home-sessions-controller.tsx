@@ -178,6 +178,24 @@ export function createHomeSessionsController(home: HomeController) {
       records,
       groups,
       loading: () => sessionLoad.isLoading,
+      // mindscript_change: an empty list has four different causes and they need four different
+      // answers. Collapsing them into one "Nothing here yet" is what told a user with real
+      // conversations on the server that they had none — the failure was indistinguishable from
+      // the success state. `filtered` and `hasAny` together separate "this project has none"
+      // from "there are none at all", which is the pair that was actually wrong.
+      failed: () => sessionLoad.isError,
+      failure: () => errorMessage(sessionLoad.error, language.t("common.requestFailed")),
+      retry: () => void sessionLoad.refetch(),
+      filtered: () => !!home.project.selected(),
+      filterName: () => {
+        const project = home.project.selected()
+        return project ? displayName(project) : ""
+      },
+      clearFilter: () => {
+        const conn = home.server.focused()
+        if (conn) home.selection.focusServer(conn)
+      },
+      hasAny: () => indexedSessions().length > 0,
       searchRecords: allRecords,
     },
     session: {

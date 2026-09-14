@@ -15,6 +15,12 @@ export function HomeSessions(props: {
       showProjectName={props.sessions.session.showProjectName}
       server={props.sessions.session.server}
       canCreateSession={props.sessions.session.canCreate}
+      failed={props.sessions.data.failed}
+      failure={props.sessions.data.failure}
+      onRetry={props.sessions.data.retry}
+      filtered={props.sessions.data.filtered}
+      filterName={props.sessions.data.filterName}
+      onClearFilter={props.sessions.data.clearFilter}
       searchValue={props.search.query.value}
       searchPlaceholder={props.search.query.placeholder}
       searchOpen={props.search.query.open}
