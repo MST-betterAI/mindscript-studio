@@ -246,7 +246,9 @@ async function openExistingConversation(context: vscode.ExtensionContext, value?
       editorRendered = undefined
     }
   })
-    panel.title = session.title ? `MindScript · ${session.title}` : "MindScript Studio"
+    // The tab already carries the MindScript icon, so prefixing the name repeats it and eats the
+    // width that would otherwise show the conversation's own title.
+    panel.title = session.title || "MindScript Studio"
     panel.iconPath = vscode.Uri.joinPath(context.extensionUri, "media", "icon.png")
     target.url.searchParams.set("vscode_theme", vscodeThemeParam())
     target.url.searchParams.set("zoom", String(panelZoom()))
