@@ -36,7 +36,11 @@
     // time so it lands before first paint even though <body> does not exist yet.
     var zoomStyle = document.createElement("style")
     zoomStyle.id = "oc-host-zoom"
-    zoomStyle.textContent = "body{zoom:" + scale + "}"
+    // Zoom scales what is rendered but not the viewport the layout is measured against, so the
+    // app's full-height root (h-dvh) ends up filling only `scale` of the panel and leaves a band
+    // of dead space at the bottom - reported from the real panel. Divide the root's height by the
+    // same factor so it still reaches the bottom edge after scaling.
+    zoomStyle.textContent = "body{zoom:" + scale + "}#root{height:calc(100dvh / " + scale + ")}"
     document.head.appendChild(zoomStyle)
   }
 
