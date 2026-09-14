@@ -4,9 +4,11 @@ import * as vscode from "vscode"
 import * as path from "node:path"
 import { ServerManager, type ServerInfo } from "./server"
 import { registerChatParticipant } from "./chat-participant"
+import { parseSessionLink } from "./session-link"
 
 let manager: ServerManager | undefined
 let out: vscode.OutputChannel | undefined
+let editorPanel: vscode.WebviewPanel | undefined
 
 function workspaceDirectory(): string | undefined {
   const active = vscode.window.activeTextEditor?.document.uri
@@ -33,11 +35,26 @@ function vscodeThemeParam(): "dark" | "light" {
   }
 }
 
+
+// mindscript_change: the panel is the same web UI the desktop and browser show, and at their
+// comfortable reading size it is too large and too airy beside VS Code's own dense chrome. A
+// proportional scale shrinks type AND spacing together, which is what "make it denser" actually
+// means; scaling only the font would leave the padding untouched and look worse. Passed as a
+// parameter so ONLY the embedded panel is affected - the browser and desktop keep their own
+// sizing - and exposed as a setting because the right density depends on the display.
+function panelZoom(): number {
+  const configured = vscode.workspace.getConfiguration("mindscript").get<number>("panelZoom")
+  if (typeof configured !== "number" || !Number.isFinite(configured)) return 0.85
+  // Clamp rather than trust: a zero or negative zoom renders an invisible panel, and a very
+  // large one makes it unusable, with no obvious way back for someone who mistyped.
+  return Math.min(1.5, Math.max(0.5, configured))
+}
+
 /** The web UI addresses a project by the base64url of its absolute path. */
 function appUrl(info: ServerInfo, directory: string, route = "/session"): string {
   const dir = Buffer.from(directory).toString("base64url")
   const token = Buffer.from(`${info.username}:${info.password}`).toString("base64")
-  return `${info.url}/${dir}${route}?auth_token=${encodeURIComponent(token)}&vscode_theme=${vscodeThemeParam()}`
+  return `${info.url}/${dir}${route}?auth_token=${encodeURIComponent(token)}&vscode_theme=${vscodeThemeParam()}&zoom=${panelZoom()}`
 }
 
 /** A message the extension pushes into the Studio UI (see packages/app: pages/session.tsx). */
@@ -67,7 +84,7 @@ function html(webview: vscode.Webview, src: string | undefined, error?: string):
 })();</script>`
     : ""
   const body = src
-    ? `<iframe id="studio" src="${src}" allow="clipboard-read; clipboard-write"></iframe>${relay}`
+    ? `<iframe id="studio" src="${src.replaceAll("&", "&amp;").replaceAll('"', "&quot;")}" allow="clipboard-read; clipboard-write"></iframe>${relay}`
     : `<div class="msg"><h3>MindScript Studio</h3><p>${error ?? "Starting…"}</p><p>Open the <b>MindScript</b> output channel for details.</p></div>`
   return `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="${csp}">
 <style>html,body{margin:0;padding:0;height:100%;overflow:hidden;background:var(--vscode-editor-background)}
@@ -129,6 +146,8 @@ async function openInTab(context: vscode.ExtensionContext): Promise<void> {
     retainContextWhenHidden: true,
     localResourceRoots: [context.extensionUri],
   })
+  editorPanel = panel
+  panel.onDidDispose(() => { if (editorPanel === panel) editorPanel = undefined })
   panel.iconPath = vscode.Uri.joinPath(context.extensionUri, "media", "icon.png")
   panel.webview.html = html(panel.webview, undefined)
   try {
@@ -136,6 +155,44 @@ async function openInTab(context: vscode.ExtensionContext): Promise<void> {
     panel.webview.html = html(panel.webview, appUrl(info, directory))
   } catch (e) {
     panel.webview.html = html(panel.webview, undefined, String(e instanceof Error ? e.message : e))
+  }
+}
+
+async function openExistingConversation(context: vscode.ExtensionContext, value?: string): Promise<void> {
+  const input = value ?? await vscode.window.showInputBox({
+    title: "Open an existing MindScript conversation",
+    prompt: "Paste its full browser link. This opens the same running session in the Studio editor column.",
+    placeHolder: "http://127.0.0.1:…/…/session/ses_…",
+    value: context.workspaceState.get<string>("mindscript.lastSessionLink"),
+  })
+  if (!input) return
+  try {
+    const target = parseSessionLink(input)
+    const token = target.url.searchParams.get("auth_token")
+    const response = await fetch(`${target.serverURL}/session/${target.sessionID}`, {
+      headers: { ...(target.directory ? { "x-opencode-directory": target.directory } : {}), ...(token ? { authorization: `Basic ${token}` } : {}) },
+      signal: AbortSignal.timeout(5000),
+    })
+    if (!response.ok) throw new Error(`The existing session could not be opened (HTTP ${response.status}). Check that its Studio server is running.`)
+    const session = await response.json() as { id?: string; title?: string; directory?: string }
+    if (session.id !== target.sessionID || (target.directory && session.directory !== target.directory)) throw new Error("The server returned a different session or project.")
+    const group = vscode.window.tabGroups.all.find(g => g.tabs.some(t => t.input instanceof vscode.TabInputWebview && t.input.viewType.includes("mindscript.tab")))
+    const panel = editorPanel ?? vscode.window.createWebviewPanel("mindscript.tab", "MindScript Studio", group?.viewColumn ?? vscode.ViewColumn.Beside, {
+      enableScripts: true, retainContextWhenHidden: true, localResourceRoots: [context.extensionUri],
+    })
+    editorPanel = panel
+    panel.onDidDispose(() => { if (editorPanel === panel) editorPanel = undefined })
+    panel.title = session.title ? `MindScript · ${session.title}` : "MindScript Studio"
+    panel.iconPath = vscode.Uri.joinPath(context.extensionUri, "media", "icon.png")
+    target.url.searchParams.set("vscode_theme", vscodeThemeParam())
+    target.url.searchParams.set("zoom", String(panelZoom()))
+    panel.webview.html = html(panel.webview, target.url.toString())
+    panel.reveal(group?.viewColumn ?? panel.viewColumn, false)
+    // Credentials, if present in an existing local link, are not saved in workspace settings.
+    if (!token) await context.workspaceState.update("mindscript.lastSessionLink", input)
+    void vscode.window.setStatusBarMessage("MindScript: viewing the existing conversation; no prompt submitted.", 5000)
+  } catch (error) {
+    void vscode.window.showErrorMessage(error instanceof Error ? error.message : "Could not open the conversation.")
   }
 }
 
@@ -196,6 +253,10 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
     vscode.commands.registerCommand("mindscript.open", () => vscode.commands.executeCommand("mindscript.chat.focus")),
     vscode.commands.registerCommand("mindscript.openInTab", () => openInTab(context)),
+    vscode.commands.registerCommand("mindscript.openExistingConversation", (url?: string) => openExistingConversation(context, url)),
+    vscode.window.registerUriHandler({ handleUri: uri => {
+      if (uri.path === "/open-session") return openExistingConversation(context, new URLSearchParams(uri.query).get("url") ?? undefined)
+    } }),
     vscode.commands.registerCommand("mindscript.newSession", () => provider.render("/session")),
     vscode.commands.registerCommand("mindscript.addToPrompt", async () => {
       const attachment = promptAttachment()
