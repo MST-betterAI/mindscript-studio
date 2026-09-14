@@ -57,6 +57,7 @@ import { DebugBar } from "@/components/debug-bar"
 import { TabsInfoPopup } from "@/components/help-button"
 import { Titlebar, type TitlebarUpdate } from "@/components/titlebar"
 import { useDirectoryPicker } from "@/components/directory-picker"
+import { createDeepLinkRuntime } from "./layout/deep-link-runtime"
 import { ServerConnection, useServer } from "@/context/server"
 import { useLanguage, type Locale } from "@/context/language"
 import { pathKey } from "@/utils/path-key"
@@ -1267,59 +1268,49 @@ export default function LegacyLayout(props: ParentProps) {
     if (navigate) return navigateToProject(directory)
   }
 
-  // mindscript_change: open an EXISTING conversation handed over from the browser or the VS Code
-  // panel. Resolve-only by design — it never creates a session and never sends a prompt. A
-  // session id only means anything on the server that issued it, so a link from a different
-  // server is refused rather than resolved against this one, which would silently open either
-  // nothing or, worse, an unrelated conversation that happens to share the id.
-  async function openExistingSession(link: OpenSessionDeepLink) {
-    const active = server.current
-    const activeUrl = active && "http" in active ? active.http.url : undefined
-    if (activeUrl && !sameServerOrigin(activeUrl, link.origin)) {
+  // mindscript_change: session links go through the shared runtime, NOT through
+  // handleDeepLinks below. That handler is gated on `server.isLocal()`, which is about stopping
+  // OS deep links from driving a remote web deployment — but it also silently swallowed session
+  // links whenever the connection was not yet resolved. The runtime's origin check is strictly
+  // stronger for this case: a link is refused unless it names the server we are talking to.
+  const deepLinks = createDeepLinkRuntime({
+    activeServerUrl: () => {
+      const active = server.current
+      return active && "http" in active ? active.http.url : undefined
+    },
+    openProject: (directory) => openProject(directory, false),
+    sessionExists: async (directory, sessionID) => {
+      const sync = serverSync().ensureDirSyncContext(directory)
+      if (sync.session.get(sessionID)) return true
+      return await sync.session
+        .sync(sessionID)
+        .then(() => !!sync.session.get(sessionID))
+        .catch(() => false)
+    },
+    navigate: (href) => navigateWithSidebarReset(href),
+    notify: (problem) =>
       showToast({
         variant: "error",
-        title: language.t("session.link.otherServer.title"),
-        description: language.t("session.link.otherServer.description", { origin: link.origin }),
-      })
-      return
-    }
-
-    // Only the project-scoped form names a directory, and only then can we confirm the session
-    // exists before navigating. The server-scoped form is handed to the app's own route, which
-    // resolves it exactly as pasting the URL would.
-    if (link.directory) {
-      openProject(link.directory, false)
-      const sync = serverSync().ensureDirSyncContext(link.directory)
-      const existing =
-        sync.session.get(link.sessionID) ??
-        (await sync.session
-          .sync(link.sessionID)
-          .then(() => sync.session.get(link.sessionID))
-          .catch(() => undefined))
-      if (!existing) {
-        showToast({
-          variant: "error",
-          title: language.t("session.link.notFound.title"),
-          description: language.t("session.link.notFound.description", {
-            sessionID: link.sessionID,
-            directory: link.directory,
-          }),
-        })
-        return
-      }
-    }
-    navigateWithSidebarReset(link.path)
-  }
+        title:
+          problem.kind === "other-server"
+            ? language.t("session.link.otherServer.title")
+            : language.t("session.link.notFound.title"),
+        description:
+          problem.kind === "other-server"
+            ? language.t("session.link.otherServer.description", { origin: problem.origin })
+            : language.t("session.link.notFound.description", {
+                sessionID: problem.sessionID,
+                directory: problem.directory,
+              }),
+      }),
+  })
 
   // The sender half of the handoff: without a copyable link there is nothing for the desktop app
   // or the VS Code panel to open. Built from the ACTIVE SERVER's address, not window.location,
-  // because on desktop the page is served from a custom protocol and its origin is not the server.
+  // because on desktop the page is served from a custom protocol whose origin is not the server.
   function conversationLink() {
     const active = server.current
     const base = active && "http" in active ? active.http.url.replace(/\/+$/, "") : window.location.origin
-    // Build from the CURRENT path rather than reassembling it: the app serves a project-scoped
-    // URL and redirects to a server-scoped one, so the route we are actually on is the truth.
-    // Round-tripping through the parser also guarantees we never hand out a link we cannot open.
     const href = `${base}${window.location.pathname}`
     return parseSessionUrl(href) ? href : undefined
   }
@@ -1345,7 +1336,7 @@ export default function LegacyLayout(props: ParentProps) {
       })
       return
     }
-    await openExistingSession(link)
+    await deepLinks.openExistingSession(link)
   }
 
   const handleDeepLinks = (urls: string[]) => {
@@ -1353,10 +1344,6 @@ export default function LegacyLayout(props: ParentProps) {
 
     for (const directory of collectOpenProjectDeepLinks(urls)) {
       void openProject(directory)
-    }
-
-    for (const link of collectOpenSessionDeepLinks(urls)) {
-      void openExistingSession(link)
     }
 
     for (const link of collectNewSessionDeepLinks(urls)) {
