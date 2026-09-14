@@ -70,6 +70,11 @@ import {
 import {
   collectNewSessionDeepLinks,
   collectOpenProjectDeepLinks,
+  collectOpenSessionDeepLinks,
+  parseOpenSessionDeepLink,
+  parseSessionUrl,
+  sameServerOrigin,
+  type OpenSessionDeepLink,
   deepLinkEvent,
   drainPendingDeepLinks,
 } from "./layout/deep-links"
@@ -905,6 +910,19 @@ export default function LegacyLayout(props: ParentProps) {
         onSelect: () => layout.sidebar.toggle(),
       },
       {
+        id: "session.copyLink",
+        title: language.t("command.session.copyLink"),
+        category: language.t("command.category.project"),
+        disabled: !conversationLink(),
+        onSelect: () => void copyConversationLink(),
+      },
+      {
+        id: "session.openLink",
+        title: language.t("command.session.openLink"),
+        category: language.t("command.category.project"),
+        onSelect: () => void openConversationFromClipboard(),
+      },
+      {
         id: "project.open",
         title: language.t("command.project.open"),
         category: language.t("command.category.project"),
@@ -1249,11 +1267,90 @@ export default function LegacyLayout(props: ParentProps) {
     if (navigate) return navigateToProject(directory)
   }
 
+  // mindscript_change: open an EXISTING conversation handed over from the browser or the VS Code
+  // panel. Resolve-only by design — it never creates a session and never sends a prompt. A
+  // session id only means anything on the server that issued it, so a link from a different
+  // server is refused rather than resolved against this one, which would silently open either
+  // nothing or, worse, an unrelated conversation that happens to share the id.
+  async function openExistingSession(link: OpenSessionDeepLink) {
+    const active = server.current
+    const activeUrl = active && "http" in active ? active.http.url : undefined
+    if (activeUrl && !sameServerOrigin(activeUrl, link.origin)) {
+      showToast({
+        variant: "error",
+        title: "That conversation is on a different server",
+        description: `The link points at ${link.origin}. Switch servers first, then open it again.`,
+      })
+      return
+    }
+
+    // Only the project-scoped form names a directory, and only then can we confirm the session
+    // exists before navigating. The server-scoped form is handed to the app's own route, which
+    // resolves it exactly as pasting the URL would.
+    if (link.directory) {
+      openProject(link.directory, false)
+      const sync = serverSync().ensureDirSyncContext(link.directory)
+      const existing =
+        sync.session.get(link.sessionID) ??
+        (await sync.session
+          .sync(link.sessionID)
+          .then(() => sync.session.get(link.sessionID))
+          .catch(() => undefined))
+      if (!existing) {
+        showToast({
+          variant: "error",
+          title: "Conversation not found",
+          description: `${link.sessionID} is not on this server, or is not in ${link.directory}.`,
+        })
+        return
+      }
+    }
+    navigateWithSidebarReset(link.path)
+  }
+
+  // The sender half of the handoff: without a copyable link there is nothing for the desktop app
+  // or the VS Code panel to open. Built from the ACTIVE SERVER's address, not window.location,
+  // because on desktop the page is served from a custom protocol and its origin is not the server.
+  function conversationLink() {
+    const active = server.current
+    const base = active && "http" in active ? active.http.url.replace(/\/+$/, "") : window.location.origin
+    // Build from the CURRENT path rather than reassembling it: the app serves a project-scoped
+    // URL and redirects to a server-scoped one, so the route we are actually on is the truth.
+    // Round-tripping through the parser also guarantees we never hand out a link we cannot open.
+    const href = `${base}${window.location.pathname}`
+    return parseSessionUrl(href) ? href : undefined
+  }
+
+  async function copyConversationLink() {
+    const href = conversationLink()
+    if (!href) return
+    await navigator.clipboard.writeText(href)
+    showToast({ title: "Link copied", description: "Paste it into the desktop app or the VS Code panel." })
+  }
+
+  async function openConversationFromClipboard() {
+    const text = await navigator.clipboard.readText().catch(() => "")
+    const link = parseSessionUrl(text.trim()) ?? parseOpenSessionDeepLink(text.trim())
+    if (!link) {
+      showToast({
+        variant: "error",
+        title: "That is not a conversation link",
+        description: "Copy the address of a conversation first, then run this again.",
+      })
+      return
+    }
+    await openExistingSession(link)
+  }
+
   const handleDeepLinks = (urls: string[]) => {
     if (!server.isLocal()) return
 
     for (const directory of collectOpenProjectDeepLinks(urls)) {
       void openProject(directory)
+    }
+
+    for (const link of collectOpenSessionDeepLinks(urls)) {
+      void openExistingSession(link)
     }
 
     for (const link of collectNewSessionDeepLinks(urls)) {

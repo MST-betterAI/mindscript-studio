@@ -27,6 +27,8 @@ export const dict = {
 
   "command.sidebar.toggle": "Toggle sidebar",
   "command.project.open": "Open project",
+  "command.session.copyLink": "Copy link to this conversation",
+  "command.session.openLink": "Open conversation from copied link",
   "command.project.previous": "Previous project",
   "command.project.next": "Next project",
   "command.project.index": "Switch to project {{index}}",

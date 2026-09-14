@@ -2,6 +2,10 @@ import { describe, expect, test } from "bun:test"
 import {
   collectNewSessionDeepLinks,
   collectOpenProjectDeepLinks,
+  collectOpenSessionDeepLinks,
+  parseOpenSessionDeepLink,
+  parseSessionUrl,
+  sameServerOrigin,
   drainPendingDeepLinks,
   parseDeepLink,
   parseNewSessionDeepLink,
@@ -343,5 +347,116 @@ describe("layout workspace helpers", () => {
     expect(errorMessage({ data: { message: "boom" } }, "fallback")).toBe("boom")
     expect(errorMessage(new Error("broken"), "fallback")).toBe("broken")
     expect(errorMessage("unknown", "fallback")).toBe("fallback")
+  })
+})
+
+describe("open-session deep links", () => {
+  // The browser URL a user can copy straight out of the address bar.
+  const browserUrl = "http://127.0.0.1:4397/L3RtcC9kZW1v/session/ses_abc123"
+
+  test("resolves server, project and session from the ordinary browser URL", () => {
+    expect(parseSessionUrl(browserUrl)).toEqual({
+      origin: "http://127.0.0.1:4397",
+      directory: "/tmp/demo",
+      sessionID: "ses_abc123",
+      path: "/L3RtcC9kZW1v/session/ses_abc123",
+    })
+  })
+
+  test("accepts the deep link wrapper used by desktop and the VS Code extension", () => {
+    expect(parseOpenSessionDeepLink(`mindscript://open-session?url=${encodeURIComponent(browserUrl)}`)).toEqual({
+      origin: "http://127.0.0.1:4397",
+      directory: "/tmp/demo",
+      sessionID: "ses_abc123",
+      path: "/L3RtcC9kZW1v/session/ses_abc123",
+    })
+  })
+
+  // Each of these would otherwise open *a* conversation that is not the one asked for,
+  // which is worse than refusing: the user cannot tell they are looking at the wrong thread.
+  test("rejects a link that is not a session URL", () => {
+    expect(parseSessionUrl("http://127.0.0.1:4397/L3RtcC9kZW1v")).toBeUndefined()
+    expect(parseSessionUrl("http://127.0.0.1:4397/L3RtcC9kZW1v/session")).toBeUndefined()
+    expect(parseSessionUrl("http://127.0.0.1:4397/L3RtcC9kZW1v/terminal/ses_abc123")).toBeUndefined()
+  })
+
+  test("rejects a session id that is not one", () => {
+    expect(parseSessionUrl("http://127.0.0.1:4397/L3RtcC9kZW1v/session/not-a-session")).toBeUndefined()
+  })
+
+  test("rejects a slug that does not decode to an absolute project path", () => {
+    expect(parseSessionUrl("http://127.0.0.1:4397/bm90LWFic29sdXRl/session/ses_abc123")).toBeUndefined()
+    expect(parseSessionUrl("http://127.0.0.1:4397/!!!/session/ses_abc123")).toBeUndefined()
+  })
+
+  test("rejects non-http schemes", () => {
+    expect(parseSessionUrl("file:///L3RtcC9kZW1v/session/ses_abc123")).toBeUndefined()
+  })
+
+  test("ignores deep links for other actions", () => {
+    expect(parseOpenSessionDeepLink("mindscript://open-project?directory=/tmp/demo")).toBeUndefined()
+    expect(parseOpenSessionDeepLink(`https://example.com/open-session?url=${encodeURIComponent(browserUrl)}`)).toBeUndefined()
+  })
+
+  test("collects only the valid ones", () => {
+    expect(
+      collectOpenSessionDeepLinks([
+        `mindscript://open-session?url=${encodeURIComponent(browserUrl)}`,
+        "mindscript://open-session?url=nonsense",
+        "mindscript://open-project?directory=/tmp/demo",
+      ]),
+    ).toEqual([
+      {
+        origin: "http://127.0.0.1:4397",
+        directory: "/tmp/demo",
+        sessionID: "ses_abc123",
+        path: "/L3RtcC9kZW1v/session/ses_abc123",
+      },
+    ])
+  })
+})
+
+describe("sameServerOrigin", () => {
+  test("matches regardless of trailing slash or path", () => {
+    expect(sameServerOrigin("http://127.0.0.1:4397", "http://127.0.0.1:4397/")).toBe(true)
+    expect(sameServerOrigin("http://127.0.0.1:4397/whatever", "http://127.0.0.1:4397")).toBe(true)
+  })
+
+  test("a different port is a different server", () => {
+    expect(sameServerOrigin("http://127.0.0.1:4397", "http://127.0.0.1:4398")).toBe(false)
+  })
+
+  test("localhost and 127.0.0.1 are not assumed equal", () => {
+    // They usually resolve the same, but the session store is keyed by the address actually
+    // used, so treating them as identical would open the wrong scope.
+    expect(sameServerOrigin("http://localhost:4397", "http://127.0.0.1:4397")).toBe(false)
+  })
+
+  test("garbage is never a match", () => {
+    expect(sameServerOrigin("not a url", "http://127.0.0.1:4397")).toBe(false)
+    expect(sameServerOrigin("http://127.0.0.1:4397", "not a url")).toBe(false)
+  })
+})
+
+describe("server-scoped session URLs (what the app redirects to)", () => {
+  // Observed in a real browser: the project-scoped URL 302s to this shape, so a user copying
+  // the address bar gets THIS one. Accepting only the project-scoped form passed every unit
+  // test and still failed for the only gesture a user actually makes.
+  const canonical = "http://127.0.0.1:8798/server/aHR0cDovLzEyNy4wLjAuMTo4Nzk4/session/ses_abc123"
+
+  test("is accepted, and carries no directory", () => {
+    expect(parseSessionUrl(canonical)).toEqual({
+      origin: "http://127.0.0.1:8798",
+      sessionID: "ses_abc123",
+      path: "/server/aHR0cDovLzEyNy4wLjAuMTo4Nzk4/session/ses_abc123",
+    })
+  })
+
+  test("rejects a server slug that does not decode to a URL", () => {
+    expect(parseSessionUrl("http://127.0.0.1:8798/server/bm90LWEtdXJs/session/ses_abc123")).toBeUndefined()
+  })
+
+  test("rejects the right shape with the wrong literal", () => {
+    expect(parseSessionUrl("http://127.0.0.1:8798/other/aHR0cDovLzEyNy4wLjAuMTo4Nzk4/session/ses_abc123")).toBeUndefined()
   })
 })
