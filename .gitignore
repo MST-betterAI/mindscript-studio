@@ -32,3 +32,6 @@ UPCOMING_CHANGELOG.md
 logs/
 *.bun-build
 tsconfig.tsbuildinfo
+
+# staging desktop builds: 200MB+ artifacts, never committed
+dist-staging/
