@@ -28,6 +28,7 @@ import { useSync } from "@/context/sync"
 import { createSessionTabs } from "@/pages/session/helpers"
 import { showToast } from "@/utils/toast"
 import { PromptInputV2, type PromptInputV2Suggestion } from "@opencode-ai/session-ui/v2/prompt-input"
+import type { JSX } from "solid-js"
 import {
   createPromptInputV2Controller,
   createPromptInputV2State,
@@ -38,6 +39,12 @@ export type PromptInputV2ComposerProps = {
   class?: string
   controller: PromptInputV2ComposerController
   borderUnderlay?: boolean
+  /**
+   * mindscript_change: rendered beside the model and agent labels. The changed-files view used to
+   * cost a permanent half-width tab above the conversation even when nothing had changed; as a
+   * control down here it is one short label that only appears when there is something to look at.
+   */
+  trailingControl?: JSX.Element
 }
 
 export type PromptInputV2ControllerProps = Omit<PromptInputProps, "class" | "submission">
@@ -75,6 +82,7 @@ export function PromptInputV2Composer(props: PromptInputV2ComposerProps) {
               }
             />
             <CurrentModelIndicator />
+            {props.trailingControl}
           </div>
         }
       />

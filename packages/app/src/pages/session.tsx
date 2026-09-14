@@ -2048,6 +2048,29 @@ export default function Page() {
 
   useUsageExceededDialogs()
 
+  // mindscript_change: the changed-files view was a permanent half-width tab above every
+  // conversation, even with nothing changed. It is now one short label in the composer row, next
+  // to the model and agent, that toggles the view. Shown whenever review is possible rather than
+  // only when files have changed: a control that disappears reads as a bug, and the count tells
+  // you whether it is worth opening.
+  const filesChangedToggle = () => (
+    <Show when={canReview()}>
+      <button
+        type="button"
+        data-action="session-files-changed"
+        class="shrink-0 text-11-medium text-text-weak hover:text-text-strong transition-colors duration-150 truncate"
+        aria-pressed={store.mobileTab === "changes"}
+        onClick={() => setStore("mobileTab", store.mobileTab === "changes" ? "session" : "changes")}
+      >
+        {store.mobileTab === "changes"
+          ? language.t("session.tab.session")
+          : hasReview()
+            ? language.t("session.review.filesChanged", { count: reviewCount() })
+            : language.t("session.review.change.other")}
+      </button>
+    </Show>
+  )
+
   const mobileTabs = (compact = false, bottom = false) => (
     <Tabs value={store.mobileTab} class="h-auto">
       <Tabs.List
@@ -2095,13 +2118,13 @@ export default function Page() {
   const sessionPanelContent = () => (
     <>
       {sessionSync() ?? ""}
-      <Show when={!isDesktop() && !!params.id && settings.general.newLayoutDesigns() && !mobileTabsBottom()}>
-        {mobileTabs(true)}
-      </Show>
       <div class="flex-1 min-h-0 overflow-hidden">
         <Switch>
           <Match when={params.id && mobileChanges()}>
             <div class="relative h-full overflow-hidden">
+              {/* The composer is not rendered in this view, so the toggle that brought the user
+                  here would be gone and there would be no way back - verified by clicking it. */}
+              <div class="absolute top-0 right-0 z-10 px-4 py-4">{filesChangedToggle()}</div>
               {reviewContent({
                 diffStyle: "unified",
                 classes: {
@@ -2268,7 +2291,13 @@ export default function Page() {
                         setFollowup("paused", id, true)
                       },
                     })
-                    return <PromptInputV2Composer controller={controller} borderUnderlay />
+                    return (
+                      <PromptInputV2Composer
+                        controller={controller}
+                        borderUnderlay
+                        trailingControl={filesChangedToggle()}
+                      />
+                    )
                   }}
                 </Show>
               }
@@ -2276,7 +2305,10 @@ export default function Page() {
           )
         }}
       </Show>
-      <Show when={!!params.id && mobileTabsBottom()}>{mobileTabs(true, true)}</Show>
+      {/* The Session/Changes pair is replaced by the composer's Files changed toggle. */}
+      <Show when={!!params.id && mobileTabsBottom() && !settings.general.newLayoutDesigns()}>
+        {mobileTabs(true, true)}
+      </Show>
     </>
   )
 
