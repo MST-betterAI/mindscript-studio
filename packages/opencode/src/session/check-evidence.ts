@@ -57,6 +57,11 @@ export interface CheckEvent {
   attributable: boolean
   /** The revision this was judged against, when there was one. */
   baselineRevision?: string
+  /**
+   * How it failed, carried through so a retry can tell "the thing I was sent to fix is still
+   * here" from "something unrelated was already broken". Absent for a pass.
+   */
+  signature?: string
 }
 
 function inconclusive(run: CheckRun, reason: InconclusiveReason, baseline?: CheckRun): CheckEvent {
@@ -68,6 +73,7 @@ function inconclusive(run: CheckRun, reason: InconclusiveReason, baseline?: Chec
     reason,
     elapsedMs: run.elapsedMs,
     attributable: false,
+    ...(run.signature ? { signature: run.signature } : {}),
     ...(baseline ? { baselineRevision: baseline.revision } : {}),
   }
 }
@@ -116,6 +122,7 @@ export function classify(run: CheckRun, baseline: CheckRun | undefined, currentR
     elapsedMs: run.elapsedMs,
     attributable: true,
     baselineRevision: baseline.revision,
+    ...(run.signature ? { signature: run.signature } : {}),
   }
 }
 
