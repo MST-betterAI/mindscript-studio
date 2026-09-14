@@ -43,8 +43,13 @@ function mindscriptBuiltinConfig(): Info {
         name: "MindScript",
         options: { baseURL, headers: { "X-MindScript-Client": "mindscript-studio" } },
         models: {
-          auto: { name: "MindScript Auto", tool_call: true, attachment: true, limit: { context: 400000, output: 32000 }, cost: zero },
-          premium: { id: "claude-fable-5-1", name: "MindScript Premium", tool_call: true, attachment: true, limit: { context: 1000000, output: 32000 }, cost: zero },
+          // `attachment` only gates the UI affordance; the wire check is `modalities.input`
+          // (provider.ts -> capabilities.input, read by transform.ts unsupportedParts). Declaring
+          // one without the other silently replaced every attached image with an error string
+          // before the request was built. Image only: the engine forwards text and image_url parts
+          // and drops anything else, so PDF must not be advertised until it forwards PDFs too.
+          auto: { name: "MindScript Auto", tool_call: true, attachment: true, modalities: { input: ["text", "image"], output: ["text"] }, limit: { context: 400000, output: 32000 }, cost: zero },
+          premium: { id: "claude-fable-5-1", name: "MindScript Premium", tool_call: true, attachment: true, modalities: { input: ["text", "image"], output: ["text"] }, limit: { context: 1000000, output: 32000 }, cost: zero },
         },
       },
     },
