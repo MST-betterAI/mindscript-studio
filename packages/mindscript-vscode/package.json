@@ -2,7 +2,7 @@
   "name": "mindscript-studio",
   "displayName": "MindScript Studio",
   "description": "MindScript Studio inside VS Code: a coding agent chat panel powered by the MindScript engine (smarter, faster, cheaper model routing).",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "publisher": "mindscript-ai",
   "private": true,
   "license": "MIT",
@@ -66,6 +66,10 @@
         "command": "mindscript.openInTab",
         "title": "MindScript: Open Studio in an Editor Tab",
         "icon": "media/icon.svg"
+      },
+      {
+        "command": "mindscript.reload",
+        "title": "MindScript: Reload Panel"
       },
       {
         "command": "mindscript.newSession",

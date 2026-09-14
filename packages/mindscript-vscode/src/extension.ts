@@ -155,6 +155,16 @@ class StudioViewProvider implements vscode.WebviewViewProvider {
   //
   // Poll the credential we rendered with and re-render when it stops matching. Cheap (a local
   // registry read), and it recovers without the user having to know why the panel went blank.
+  // mindscript_change: a webview keeps its page for the life of the window
+  // (retainContextWhenHidden), so hiding and showing the panel does NOT reload it - and neither
+  // does "Open Studio", which only focuses the view. A panel opened before a new build shows the
+  // old UI indefinitely while a freshly created panel shows the new one, which is exactly the
+  // confusion the Founder hit: his panel never updated, Bob's new ones always did. Re-rendering
+  // is the only way to pick up a new build and there was no command for it.
+  async reload(): Promise<void> {
+    await this.render(this.lastRoute)
+  }
+
   watchForServerChange(): vscode.Disposable {
     const timer = setInterval(() => {
       void (async () => {
@@ -177,6 +187,17 @@ class StudioViewProvider implements vscode.WebviewViewProvider {
 // The editor tab holds the same one-time credential as the sidebar and goes equally dead when a
 // server restart mints a new one. Only refreshed when we rendered it ourselves from the registry
 // - a tab opened from a specific conversation link is left alone.
+/** Re-render the editor tab against the current server, whether or not its credential changed. */
+async function refreshEditorPanel(): Promise<void> {
+  const panel = editorPanel
+  const current = editorRendered
+  if (!panel || !current) return
+  const info = await manager?.peek(current.directory)
+  if (!info) return
+  editorRendered = { url: info.url, username: info.username, password: info.password, directory: current.directory }
+  panel.webview.html = html(panel.webview, appUrl(info, current.directory))
+}
+
 async function refreshEditorPanelIfStale(): Promise<void> {
   const panel = editorPanel
   const current = editorRendered
@@ -354,6 +375,10 @@ export function activate(context: vscode.ExtensionContext): void {
       }
       await vscode.env.clipboard.writeText(ref)
       void vscode.window.setStatusBarMessage(`MindScript: copied ${ref}`, 3000)
+    }),
+    vscode.commands.registerCommand("mindscript.reload", async () => {
+      await provider.reload()
+      await refreshEditorPanel()
     }),
     vscode.commands.registerCommand("mindscript.restartServer", async () => {
       await manager!.stop()
