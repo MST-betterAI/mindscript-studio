@@ -690,6 +690,12 @@ export const dict = {
   "session.error.notFound.closeTab": "Close Tab",
   "session.error.serverConnection": "Can't connect to this server",
   "session.review.filesChanged": "Files Changed {{count}}",
+  // Lowercase on purpose: these sit beside the agent name ("conductor") in the composer row and
+  // are that label's peers, not headings. The Title Case variants above stay for the tab titles.
+  "session.review.toggle": "changes",
+  "session.review.toggleCount": "{{count}} changed",
+  "session.review.toggleBack": "session",
+  "session.review.backToConversation": "Back to conversation",
   "session.review.change.one": "Change",
   "session.review.change.other": "Changes",
   "session.review.loadingChanges": "Loading changes...",

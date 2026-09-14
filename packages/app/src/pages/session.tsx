@@ -2058,15 +2058,15 @@ export default function Page() {
       <button
         type="button"
         data-action="session-files-changed"
-        class="shrink-0 text-11-medium text-text-weak hover:text-text-strong transition-colors duration-150 truncate"
+        class="shrink-0 truncate text-[11px] leading-4 text-v2-text-text-faint hover:text-v2-text-text-base transition-colors duration-150 select-none"
         aria-pressed={store.mobileTab === "changes"}
         onClick={() => setStore("mobileTab", store.mobileTab === "changes" ? "session" : "changes")}
       >
         {store.mobileTab === "changes"
-          ? language.t("session.tab.session")
+          ? language.t("session.review.toggleBack")
           : hasReview()
-            ? language.t("session.review.filesChanged", { count: reviewCount() })
-            : language.t("session.review.change.other")}
+            ? language.t("session.review.toggleCount", { count: reviewCount() })
+            : language.t("session.review.toggle")}
       </button>
     </Show>
   )
@@ -2122,9 +2122,19 @@ export default function Page() {
         <Switch>
           <Match when={params.id && mobileChanges()}>
             <div class="relative h-full overflow-hidden">
-              {/* The composer is not rendered in this view, so the toggle that brought the user
-                  here would be gone and there would be no way back - verified by clicking it. */}
-              <div class="absolute top-0 right-0 z-10 px-4 py-4">{filesChangedToggle()}</div>
+              {/* The composer is not rendered here, so the control that brought the user in is
+                  gone. A faint peer label in the corner technically worked and was still missed -
+                  a way back has to look like a way back, so this one is top-left, full contrast,
+                  with an arrow and words rather than a one-word toggle. */}
+              <button
+                type="button"
+                data-action="session-back-to-conversation"
+                class="absolute top-0 left-0 z-10 m-3 flex items-center gap-1.5 rounded-md border border-border-weak-base bg-background-base px-2.5 py-1.5 text-12-medium text-text-strong hover:bg-background-stronger transition-colors duration-150"
+                onClick={() => setStore("mobileTab", "session")}
+              >
+                <span aria-hidden="true">←</span>
+                {language.t("session.review.backToConversation")}
+              </button>
               {reviewContent({
                 diffStyle: "unified",
                 classes: {
