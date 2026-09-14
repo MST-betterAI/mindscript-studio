@@ -20,7 +20,15 @@
   // - scaling only the font would leave the padding behind and look worse. Applied here, before
   // first paint, so the panel never flashes at the wrong size. Only an embedding host passes
   // this, so the browser and desktop apps are unaffected.
-  var requestedZoom = parseFloat(new URLSearchParams(location.search).get("zoom") || "")
+  // Depending on the extension to pass ?zoom= meant the density only arrived after VS Code
+  // reloaded its window and picked up a new extension build - which is exactly the reload we do
+  // not want to ask for. `vscode_theme` is passed by EVERY version of the extension, so its
+  // presence is a reliable "I am the VS Code panel" signal that works with whatever version is
+  // already loaded. An explicit ?zoom= still wins, so the setting stays authoritative.
+  var params = new URLSearchParams(location.search)
+  var explicitZoom = parseFloat(params.get("zoom") || "")
+  var embeddedInVscode = params.get("vscode_theme") !== null
+  var requestedZoom = isFinite(explicitZoom) && explicitZoom > 0 ? explicitZoom : embeddedInVscode ? 0.85 : NaN
   if (isFinite(requestedZoom) && requestedZoom > 0) {
     var scale = Math.min(1.5, Math.max(0.5, requestedZoom))
     // A rule on body, not documentElement.style.zoom: Chromium ignores zoom on the root element
