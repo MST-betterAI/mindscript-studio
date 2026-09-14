@@ -12,6 +12,10 @@ const SERVER_WATCH_MS = 5_000
 let manager: ServerManager | undefined
 let out: vscode.OutputChannel | undefined
 let editorPanel: vscode.WebviewPanel | undefined
+// mindscript_change: the editor tab is a separate webview from the sidebar view and needs the
+// same stale-credential recovery. The Founder works in this middle column, so covering only the
+// sidebar left the surface he actually uses dead after any server restart.
+let editorRendered: { url: string; username: string; password: string; directory: string } | undefined
 
 function workspaceDirectory(): string | undefined {
   const active = vscode.window.activeTextEditor?.document.uri
@@ -154,6 +158,7 @@ class StudioViewProvider implements vscode.WebviewViewProvider {
   watchForServerChange(): vscode.Disposable {
     const timer = setInterval(() => {
       void (async () => {
+        await refreshEditorPanelIfStale()
         const current = this.rendered
         if (!current || !this.view?.visible) return
         const directory = workspaceDirectory()
@@ -169,6 +174,20 @@ class StudioViewProvider implements vscode.WebviewViewProvider {
   }
 }
 
+// The editor tab holds the same one-time credential as the sidebar and goes equally dead when a
+// server restart mints a new one. Only refreshed when we rendered it ourselves from the registry
+// - a tab opened from a specific conversation link is left alone.
+async function refreshEditorPanelIfStale(): Promise<void> {
+  const panel = editorPanel
+  const current = editorRendered
+  if (!panel || !current) return
+  const info = await manager?.peek(current.directory)
+  if (!info) return
+  if (info.url === current.url && info.username === current.username && info.password === current.password) return
+  editorRendered = { url: info.url, username: info.username, password: info.password, directory: current.directory }
+  panel.webview.html = html(panel.webview, appUrl(info, current.directory))
+}
+
 async function openInTab(context: vscode.ExtensionContext): Promise<void> {
   const directory = workspaceDirectory()
   if (!directory) {
@@ -181,11 +200,17 @@ async function openInTab(context: vscode.ExtensionContext): Promise<void> {
     localResourceRoots: [context.extensionUri],
   })
   editorPanel = panel
-  panel.onDidDispose(() => { if (editorPanel === panel) editorPanel = undefined })
+  panel.onDidDispose(() => {
+    if (editorPanel === panel) {
+      editorPanel = undefined
+      editorRendered = undefined
+    }
+  })
   panel.iconPath = vscode.Uri.joinPath(context.extensionUri, "media", "icon.png")
   panel.webview.html = html(panel.webview, undefined)
   try {
     const info = await manager!.ensure(directory)
+    editorRendered = { url: info.url, username: info.username, password: info.password, directory }
     panel.webview.html = html(panel.webview, appUrl(info, directory))
   } catch (e) {
     panel.webview.html = html(panel.webview, undefined, String(e instanceof Error ? e.message : e))
@@ -215,11 +240,20 @@ async function openExistingConversation(context: vscode.ExtensionContext, value?
       enableScripts: true, retainContextWhenHidden: true, localResourceRoots: [context.extensionUri],
     })
     editorPanel = panel
-    panel.onDidDispose(() => { if (editorPanel === panel) editorPanel = undefined })
+    panel.onDidDispose(() => {
+    if (editorPanel === panel) {
+      editorPanel = undefined
+      editorRendered = undefined
+    }
+  })
     panel.title = session.title ? `MindScript · ${session.title}` : "MindScript Studio"
     panel.iconPath = vscode.Uri.joinPath(context.extensionUri, "media", "icon.png")
     target.url.searchParams.set("vscode_theme", vscodeThemeParam())
     target.url.searchParams.set("zoom", String(panelZoom()))
+    // A conversation opened from a specific link is not ours to refresh: its credentials came
+    // from that link, and re-rendering it from the registry would silently replace the
+    // conversation the user asked for with the default view.
+    editorRendered = undefined
     panel.webview.html = html(panel.webview, target.url.toString())
     panel.reveal(group?.viewColumn ?? panel.viewColumn, false)
     // Credentials, if present in an existing local link, are not saved in workspace settings.
