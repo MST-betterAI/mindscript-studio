@@ -62,7 +62,6 @@ import { shouldMarkBoundaryGesture, normalizeWheelDelta } from "@/pages/session/
 import { SessionContextUsage } from "@/components/session-context-usage"
 import { useDialog } from "@opencode-ai/ui/context/dialog"
 import { useLanguage } from "@/context/language"
-import { ThinkingTicker } from "@/components/session/thinking-ticker"
 import { useSessionKey } from "@/pages/session/session-layout"
 import { useSessionArchive } from "@/pages/session/session-archive"
 import { useServerSDK } from "@/context/server-sdk"
@@ -130,11 +129,7 @@ const markBoundaryGesture = (input: {
   }
 }
 
-function TimelineThinkingRow(props: {
-  reasoningHeading?: string
-  showReasoningSummaries: boolean
-  seed: string
-}) {
+function TimelineThinkingRow(props: { reasoningHeading?: string; showReasoningSummaries: boolean }) {
   const language = useLanguage()
 
   return (
@@ -143,10 +138,6 @@ function TimelineThinkingRow(props: {
       <Show when={!props.showReasoningSummaries}>
         <TextReveal text={props.reasoningHeading} class="session-turn-thinking-heading" travel={25} duration={700} />
       </Show>
-      {/* mindscript_change: the Founder asked for something to read while MindScript works, and
-          this is where he is already looking - a shimmering "Thinking" and nothing else. The
-          quote goes directly under it rather than somewhere else on screen. */}
-      <ThinkingTicker active sessionID={props.seed} />
     </div>
   )
 }
@@ -1197,7 +1188,6 @@ export function MessageTimeline(props: {
               <TimelineThinkingRow
                 reasoningHeading={thinkingRow().reasoningHeading}
                 showReasoningSummaries={settings.general.showReasoningSummaries()}
-                seed={thinkingRow().userMessageID}
               />
             </div>
           </TimelineRowFrame>
