@@ -5,6 +5,7 @@ import { SessionV1 } from "@opencode-ai/core/v1/session"
 import os from "os"
 import { SessionID, MessageID, PartID } from "./schema"
 import { MessageV2 } from "./message-v2"
+import { latestRealUser } from "./latest-user"
 import { SessionRevert } from "./revert"
 import { Session } from "./session"
 import { Agent } from "../agent/agent"
@@ -1271,6 +1272,9 @@ const layer = Layer.effect(
             if (format.type === "json_schema") system.push(STRUCTURED_OUTPUT_SYSTEM_PROMPT)
             const result = yield* handle.process({
               user: lastUser,
+              // The live question may be older than the synthetic continuation that triggered
+              // this request, so it is resolved from the retained messages, not from lastUser.
+              latestUser: latestRealUser(msgs),
               agent,
               permission: session.permission,
               sessionID,

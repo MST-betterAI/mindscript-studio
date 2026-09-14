@@ -14,11 +14,13 @@ import { Effect, Record } from "effect"
 import { jsonSchema, tool as aiTool, type ModelMessage, type Tool } from "ai"
 import type { Plugin } from "@/plugin"
 import { mergeDeep } from "remeda"
+import type { LatestUser } from "../latest-user"
 
 const USER_AGENT = `opencode/${InstallationVersion}`
 
 type PrepareInput = {
   readonly user: SessionV1.User
+  readonly latestUser?: LatestUser
   readonly sessionID: string
   readonly parentSessionID?: string
   readonly model: Provider.Model
@@ -89,6 +91,17 @@ export const prepare = Effect.fn("LLMRequestPrep.prepare")(function* (input: Pre
         providerOptions: input.provider.options,
       })
   const options = mergeOptions(mergeOptions(mergeOptions(base, input.model.options), input.agent.options), variant)
+
+  // mindscript_change: tell the engine which turn is a real person speaking. A compaction
+  // continuation is also a user message, so without this the engine cannot tell a live question
+  // from machinery and keeps working while the panel says "Thinking". Unknown keys in the
+  // provider namespace are forwarded as top-level body fields by the openai-compatible SDK.
+  if (input.latestUser) {
+    options["mindscript_context"] = {
+      ...(options["mindscript_context"] as Record<string, unknown> | undefined),
+      latest_user: { id: input.latestUser.id, text: input.latestUser.text },
+    }
+  }
   if (
     input.model.api.npm === "@ai-sdk/azure" &&
     (input.provider.options.useCompletionUrls || input.model.options.useCompletionUrls || options.useCompletionUrls)

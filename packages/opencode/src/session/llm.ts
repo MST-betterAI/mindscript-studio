@@ -15,6 +15,7 @@ import { ProviderTransform } from "@/provider/transform"
 import { Config } from "@/config/config"
 import type { Agent } from "@/agent/agent"
 import type { MessageV2 } from "./message-v2"
+import type { LatestUser } from "./latest-user"
 import { Plugin } from "@/plugin"
 import { Permission } from "@/permission"
 import { EventV2Bridge } from "@/event-v2-bridge"
@@ -34,6 +35,8 @@ export const OUTPUT_TOKEN_MAX = ProviderTransform.OUTPUT_TOKEN_MAX
 
 export type StreamInput = {
   user: SessionV1.User
+  /** The most recent turn a person actually typed, for engine-side routing. */
+  latestUser?: LatestUser
   sessionID: string
   parentSessionID?: string
   model: Provider.Model
