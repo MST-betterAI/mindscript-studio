@@ -2,7 +2,7 @@
   "name": "mindscript-studio",
   "displayName": "MindScript Studio",
   "description": "MindScript Studio inside VS Code: a coding agent chat panel powered by the MindScript engine (smarter, faster, cheaper model routing).",
-  "version": "0.1.0",
+  "version": "0.1.3",
   "publisher": "mindscript-ai",
   "private": true,
   "license": "MIT",
@@ -24,7 +24,8 @@
     "Other"
   ],
   "activationEvents": [
-    "onStartupFinished"
+    "onStartupFinished",
+    "onUri"
   ],
   "main": "./dist/extension.js",
   "contributes": {
@@ -33,7 +34,7 @@
         "id": "mindscript.participant",
         "fullName": "MindScript",
         "name": "mindscript",
-        "description": "Ask MindScript — routed to the best-value model for the question, cost shown when it answers.",
+        "description": "Ask MindScript \u2014 routed to the best-value model for the question, cost shown when it answers.",
         "isSticky": true
       }
     ],
@@ -57,13 +58,39 @@
       ]
     },
     "commands": [
-      { "command": "mindscript.open", "title": "MindScript: Open Studio" },
-      { "command": "mindscript.openInTab", "title": "MindScript: Open Studio in an Editor Tab", "icon": "media/icon.svg" },
-      { "command": "mindscript.newSession", "title": "MindScript: New Session" },
-      { "command": "mindscript.addToPrompt", "title": "MindScript: Add File / Selection to the Prompt" },
-      { "command": "mindscript.copyReference", "title": "MindScript: Copy File Reference" },
-      { "command": "mindscript.restartServer", "title": "MindScript: Restart Server" },
-      { "command": "mindscript.showStatus", "title": "MindScript: Show Status" }
+      {
+        "command": "mindscript.open",
+        "title": "MindScript: Open Studio"
+      },
+      {
+        "command": "mindscript.openInTab",
+        "title": "MindScript: Open Studio in an Editor Tab",
+        "icon": "media/icon.svg"
+      },
+      {
+        "command": "mindscript.newSession",
+        "title": "MindScript: New Session"
+      },
+      {
+        "command": "mindscript.addToPrompt",
+        "title": "MindScript: Add File / Selection to the Prompt"
+      },
+      {
+        "command": "mindscript.copyReference",
+        "title": "MindScript: Copy File Reference"
+      },
+      {
+        "command": "mindscript.restartServer",
+        "title": "MindScript: Restart Server"
+      },
+      {
+        "command": "mindscript.showStatus",
+        "title": "MindScript: Show Status"
+      },
+      {
+        "command": "mindscript.openExistingConversation",
+        "title": "MindScript: Open Existing Conversation"
+      }
     ],
     "menus": {
       "editor/title": [
@@ -73,12 +100,51 @@
         }
       ],
       "editor/context": [
-        { "command": "mindscript.addToPrompt", "group": "mindscript@1" }
+        {
+          "command": "mindscript.addToPrompt",
+          "group": "mindscript@1"
+        }
       ]
     },
     "keybindings": [
-      { "command": "mindscript.open", "key": "cmd+escape", "mac": "cmd+escape", "win": "ctrl+escape", "linux": "ctrl+escape" },
-      { "command": "mindscript.addToPrompt", "key": "cmd+alt+k", "mac": "cmd+alt+k", "win": "ctrl+alt+k", "linux": "ctrl+alt+k" }
+      {
+        "command": "mindscript.open",
+        "key": "cmd+escape",
+        "mac": "cmd+escape",
+        "win": "ctrl+escape",
+        "linux": "ctrl+escape"
+      },
+      {
+        "command": "mindscript.addToPrompt",
+        "key": "cmd+alt+k",
+        "mac": "cmd+alt+k",
+        "win": "ctrl+alt+k",
+        "linux": "ctrl+alt+k"
+      },
+      {
+        "command": "editor.action.clipboardCopyAction",
+        "key": "ctrl+c",
+        "mac": "cmd+c",
+        "win": "ctrl+c",
+        "linux": "ctrl+c",
+        "when": "webviewFocus && activeWebviewPanelId == 'mindscript.tab' || webviewFocus && focusedView == 'mindscript.chat'"
+      },
+      {
+        "command": "editor.action.clipboardPasteAction",
+        "key": "ctrl+v",
+        "mac": "cmd+v",
+        "win": "ctrl+v",
+        "linux": "ctrl+v",
+        "when": "webviewFocus && activeWebviewPanelId == 'mindscript.tab' || webviewFocus && focusedView == 'mindscript.chat'"
+      },
+      {
+        "command": "editor.action.clipboardCutAction",
+        "key": "ctrl+x",
+        "mac": "cmd+x",
+        "win": "ctrl+x",
+        "linux": "ctrl+x",
+        "when": "webviewFocus && activeWebviewPanelId == 'mindscript.tab' || webviewFocus && focusedView == 'mindscript.chat'"
+      }
     ],
     "configuration": {
       "title": "MindScript Studio",
