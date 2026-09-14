@@ -75,7 +75,13 @@ export function PromptInputV2Composer(props: PromptInputV2ComposerProps) {
               keybind={command.keybindParts("model.choose")}
               model={props.controller.model.selection}
               providerID={props.controller.model.selection.current()?.provider?.id}
-              modelName={props.controller.model.selection.current()?.name ?? language.t("dialog.model.select.title")}
+              // mindscript_change: the row already sits inside MindScript, so repeating the product
+              // name in the model label spends width that the panel does not have. "MindScript
+              // Auto" becomes "Auto"; anything not prefixed is left exactly as it is.
+              modelName={(props.controller.model.selection.current()?.name ?? language.t("dialog.model.select.title")).replace(
+                /^MindScript\s+/,
+                "",
+              )}
               onClose={props.controller.restoreFocus}
               onUnpaidClick={() =>
                 dialog.show(() => <DialogSelectModelUnpaidV2 model={props.controller.model.selection} />)

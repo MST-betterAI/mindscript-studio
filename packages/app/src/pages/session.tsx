@@ -2058,7 +2058,7 @@ export default function Page() {
       <button
         type="button"
         data-action="session-files-changed"
-        class="shrink-0 truncate text-[11px] leading-4 text-v2-text-text-faint hover:text-v2-text-text-base transition-colors duration-150 select-none"
+        class="shrink-0 truncate mr-2 text-[11px] leading-4 text-v2-text-text-base hover:text-v2-text-text-strong transition-colors duration-150 select-none"
         aria-pressed={store.mobileTab === "changes"}
         onClick={() => setStore("mobileTab", store.mobileTab === "changes" ? "session" : "changes")}
       >
