@@ -44,8 +44,21 @@ The previous app is not modified by building this. If the new one misbehaves, re
 `packages/desktop/dist/mindscript-studio-mac-arm64.dmg`, which is the earlier output and is
 untouched by this staging build.
 
-## Not yet verified
+## Verification status
 
-**Desktop acceptance has not been observed.** No claim is made that the desktop UI loads the
-same session as the browser — that check needs this build installed and running, which is the
-step this document exists to schedule.
+**Verified on desktop:** the conversation-link handler runs and behaves correctly. With a link
+naming a server the app is not connected to, it refuses and says so — the toast appears at about
+**400 ms** and is gone within a couple of seconds, which is why an earlier check that sampled the
+screen 6-15 seconds later wrongly reported "nothing happens". Independently confirmed by queuing
+a link and reloading: the pending queue came back empty, so the mount-time path consumed it.
+
+**Not yet verified on desktop:** the same-server happy path — a link opening the conversation.
+This runs the identical code that *is* verified end to end in a real browser, so the remaining
+risk is small, but it has not been watched and is therefore not claimed.
+
+**Why it is not yet done:** the desktop talks only to its own sidecar, which runs as an Electron
+utility process with in-process credentials, so a session cannot be seeded on it from outside.
+`MINDSCRIPT_BASE_URL` and `setDefaultServerUrl` do not redirect an already-provisioned profile.
+The clean route is adding a server through the app's own UI, or opening a conversation the app
+already holds. A fresh dev profile has none, and creating one would spend real money on a live
+model call, so it was not done casually.
