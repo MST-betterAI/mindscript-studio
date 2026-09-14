@@ -60,7 +60,6 @@ import { useTabs } from "@/context/tabs"
 import { TerminalProvider, useTerminal } from "@/context/terminal"
 import { PromptInput } from "@/components/prompt-input"
 import { PromptInputV2Composer, usePromptInputV2Controller } from "@/components/prompt-input-v2"
-import { ThinkingTicker } from "@/components/session/thinking-ticker"
 import { useSettingsCommand } from "@/components/settings-dialog"
 import { setCursorPosition } from "@/components/prompt-input/editor-dom"
 import { promptLength } from "@/components/prompt-input/history"
@@ -2054,16 +2053,6 @@ export default function Page() {
   // to the model and agent, that toggles the view. Shown whenever review is possible rather than
   // only when files have changed: a control that disappears reads as a bug, and the count tells
   // you whether it is worth opening.
-  // mindscript_change: the Founder reported nothing shows that MindScript is thinking. This is
-  // the same session_status the page already reacts to, so the ticker cannot disagree with the
-  // rest of the UI about whether work is happening.
-  const sessionWorking = createMemo(() => {
-    const id = params.id
-    if (!id) return false
-    const type = sync().data.session_status[id]?.type
-    return !!type && type !== "idle"
-  })
-
   const filesChangedToggle = () => (
     <Show when={canReview()}>
       <button
@@ -2313,14 +2302,11 @@ export default function Page() {
                       },
                     })
                     return (
-                      <>
-                        <ThinkingTicker active={sessionWorking()} sessionID={params.id ?? ""} />
-                        <PromptInputV2Composer
-                          controller={controller}
-                          borderUnderlay
-                          trailingControl={filesChangedToggle()}
-                        />
-                      </>
+                      <PromptInputV2Composer
+                        controller={controller}
+                        borderUnderlay
+                        trailingControl={filesChangedToggle()}
+                      />
                     )
                   }}
                 </Show>
