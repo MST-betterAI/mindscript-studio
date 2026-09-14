@@ -6,6 +6,9 @@ import { ServerManager, type ServerInfo } from "./server"
 import { registerChatParticipant } from "./chat-participant"
 import { parseSessionLink } from "./session-link"
 
+/** How often to notice that the panel is holding a credential the server no longer accepts. */
+const SERVER_WATCH_MS = 5_000
+
 let manager: ServerManager | undefined
 let out: vscode.OutputChannel | undefined
 let editorPanel: vscode.WebviewPanel | undefined
@@ -110,6 +113,9 @@ class StudioViewProvider implements vscode.WebviewViewProvider {
     return this.view.webview.postMessage(message)
   }
 
+  private rendered?: { url: string; username: string; password: string }
+  private lastRoute = "/session"
+
   /** Resolve once the sidebar view exists (it is created lazily by VS Code after focus). */
   async waitForView(ms: number): Promise<boolean> {
     const until = Date.now() + ms
@@ -128,10 +134,38 @@ class StudioViewProvider implements vscode.WebviewViewProvider {
     view.webview.html = html(view.webview, undefined)
     try {
       const info = await manager!.ensure(directory)
+      this.rendered = { url: info.url, username: info.username, password: info.password }
+      this.lastRoute = route
       view.webview.html = html(view.webview, appUrl(info, directory, route))
     } catch (e) {
+      this.rendered = undefined
       view.webview.html = html(view.webview, undefined, String(e instanceof Error ? e.message : e))
     }
+  }
+
+  // mindscript_change: the panel embeds the server's address AND a one-time credential, and a
+  // fresh password is minted every time the server is spawned. So any restart underneath a
+  // panel that is already open - a crash, a `Restart Server`, an upgrade - leaves that panel
+  // holding a credential the server no longer accepts, showing nothing until the user happens to
+  // reopen it. Nothing re-rendered on its own, because render() only ran on open or a command.
+  //
+  // Poll the credential we rendered with and re-render when it stops matching. Cheap (a local
+  // registry read), and it recovers without the user having to know why the panel went blank.
+  watchForServerChange(): vscode.Disposable {
+    const timer = setInterval(() => {
+      void (async () => {
+        const current = this.rendered
+        if (!current || !this.view?.visible) return
+        const directory = workspaceDirectory()
+        if (!directory) return
+        const info = await manager?.peek(directory)
+        if (!info) return
+        const same =
+          info.url === current.url && info.username === current.username && info.password === current.password
+        if (!same) await this.render(this.lastRoute)
+      })()
+    }, SERVER_WATCH_MS)
+    return new vscode.Disposable(() => clearInterval(timer))
   }
 }
 
@@ -234,6 +268,7 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
     out,
     vscode.window.registerWebviewViewProvider("mindscript.chat", provider, { webviewOptions: { retainContextWhenHidden: true } }),
+    provider.watchForServerChange(),
     // Experiment: MindScript as a native VS Code chat participant (`@mindscript` in the built-in
     // Chat view), alongside the existing sidebar panel — additive, does not replace it.
     registerChatParticipant(context, manager, workspaceDirectory),

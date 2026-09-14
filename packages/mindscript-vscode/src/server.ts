@@ -251,6 +251,24 @@ export class ServerManager {
     for (const fn of this.listeners) fn(this.info)
   }
 
+  /**
+   * The server currently registered for this directory, WITHOUT starting one. Used to notice
+   * that a restart has minted a new credential under an already-rendered panel; `ensure()` would
+   * spawn a server as a side effect, which is not wanted from a polling loop.
+   */
+  async peek(directory: string): Promise<ServerInfo | undefined> {
+    const existing = readRegistry(directory)
+    if (!existing) return undefined
+    return {
+      url: existing.url,
+      port: existing.port,
+      username: existing.username,
+      password: existing.password,
+      directory: existing.directory,
+      pid: existing.pid,
+    } as ServerInfo
+  }
+
   async ensure(directory: string): Promise<ServerInfo> {
     if (this.info && this.info.directory === directory) {
       // Either we own a live child, or we're attached to someone else's — either way, confirm
