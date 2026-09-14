@@ -1,3 +1,4 @@
+
 import type { Session } from "@opencode-ai/sdk/v2/client"
 import { preloadMarkdown } from "@opencode-ai/session-ui/markdown-cache"
 import { useDialog } from "@opencode-ai/ui/context/dialog"
@@ -18,6 +19,7 @@ import { sessionHasOpenTab, useTabs } from "@/context/tabs"
 import { compareSessionTime, displayName, errorMessage, projectForSession } from "@/pages/layout/helpers"
 import { useSessionTabAvatarState } from "@/pages/layout/project-avatar-state"
 import { pathKey } from "@/utils/path-key"
+import { buildHomeSessionRecords } from "./home-session-records"
 import { showToast } from "@/utils/toast"
 import { Binary } from "@opencode-ai/core/util/binary"
 import { archiveHomeSession } from "../home-session-archive"
@@ -43,9 +45,14 @@ export function createHomeSessionsController(home: HomeController) {
   const command = useCommand()
   const dialog = useDialog()
   const language = useLanguage()
+  // mindscript_change: `undefined` means "no project filter", which is NOT the same as "filter by
+  // the empty list". Previously an unselected project fell back to the locally opened projects,
+  // so a user who had never clicked "Add project" filtered every server-owned session away and
+  // was shown a new-user empty state while five real conversations existed on the server.
+  // An explicit selection still filters; no selection must never hide existing data.
   const projectDirectories = createMemo(() => {
     const project = home.project.selected()
-    if (!project) return home.project.list().flatMap(directories)
+    if (!project) return undefined
     return directories(project)
   })
   const projectByID = createMemo(
@@ -245,30 +252,6 @@ export function createHomeSessionsController(home: HomeController) {
 
 function directories(project: LocalProject) {
   return [project.worktree, ...(project.sandboxes ?? [])]
-}
-
-function buildHomeSessionRecords(input: {
-  sessions: () => Session[]
-  projectDirectories: () => string[]
-  projects: () => LocalProject[]
-  projectByID: () => Map<string, LocalProject>
-}) {
-  const directories = new Set(input.projectDirectories().map(pathKey))
-  const sessions = input.sessions().filter((session) => directories.has(pathKey(session.directory)))
-  return [...new Map(sessions.map((session) => [session.id, session] as const)).values()]
-    .sort(compareSessionTime)
-    .flatMap((session) => {
-      const directory = pathKey(session.directory)
-      const project =
-        input
-          .projects()
-          .find(
-            (item) =>
-              pathKey(item.worktree) === directory || item.sandboxes?.some((sandbox) => pathKey(sandbox) === directory),
-          ) ?? projectForSession(session, input.projects(), input.projectByID())
-      if (!project) return []
-      return { session, project, projectName: displayName(project) }
-    })
 }
 
 export function homeSessionSearchKey(record: HomeSessionRecord) {

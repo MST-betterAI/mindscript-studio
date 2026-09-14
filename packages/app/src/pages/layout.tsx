@@ -1278,8 +1278,8 @@ export default function LegacyLayout(props: ParentProps) {
     if (activeUrl && !sameServerOrigin(activeUrl, link.origin)) {
       showToast({
         variant: "error",
-        title: "That conversation is on a different server",
-        description: `The link points at ${link.origin}. Switch servers first, then open it again.`,
+        title: language.t("session.link.otherServer.title"),
+        description: language.t("session.link.otherServer.description", { origin: link.origin }),
       })
       return
     }
@@ -1299,8 +1299,11 @@ export default function LegacyLayout(props: ParentProps) {
       if (!existing) {
         showToast({
           variant: "error",
-          title: "Conversation not found",
-          description: `${link.sessionID} is not on this server, or is not in ${link.directory}.`,
+          title: language.t("session.link.notFound.title"),
+          description: language.t("session.link.notFound.description", {
+            sessionID: link.sessionID,
+            directory: link.directory,
+          }),
         })
         return
       }
@@ -1325,7 +1328,10 @@ export default function LegacyLayout(props: ParentProps) {
     const href = conversationLink()
     if (!href) return
     await navigator.clipboard.writeText(href)
-    showToast({ title: "Link copied", description: "Paste it into the desktop app or the VS Code panel." })
+    showToast({
+      title: language.t("session.link.copied.title"),
+      description: language.t("session.link.copied.description"),
+    })
   }
 
   async function openConversationFromClipboard() {
@@ -1334,8 +1340,8 @@ export default function LegacyLayout(props: ParentProps) {
     if (!link) {
       showToast({
         variant: "error",
-        title: "That is not a conversation link",
-        description: "Copy the address of a conversation first, then run this again.",
+        title: language.t("session.link.invalid.title"),
+        description: language.t("session.link.invalid.description"),
       })
       return
     }
