@@ -258,10 +258,16 @@ function ResolvedTargetSessionRoute() {
   createEffect(() => {
     const session = current()
     if (!session) return
-    tabs.addSessionTab({
+    const tab = tabs.addSessionTab({
       server: serverKey(),
       sessionId: session.root.id,
     })
+    // mindscript_change: arriving at a session route made a tab for it but left the app's idea of
+    // the current tab pointing at whatever was restored from the previous visit. Opening a
+    // conversation by link therefore showed the right title while a different restored tab stayed
+    // selected - reported from the actual VS Code column, where the wanted tab sat one to the
+    // left of the one on screen. The route is the instruction; the tab bar should follow it.
+    tabs.remember(tab)
   })
 
   return (
