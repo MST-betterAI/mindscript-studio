@@ -11,7 +11,15 @@ import { Persist, persisted } from "@/utils/persist"
 const IS_MAC = typeof navigator === "object" && /(Mac|iPod|iPhone|iPad)/.test(navigator.platform)
 
 const PALETTE_ID = "command.palette"
-export const DEFAULT_PALETTE_KEYBIND = "mod+k,mod+shift+p"
+// mindscript_change: mod+shift+p belongs to the host when we are embedded. Inside the VS Code
+// panel it opened OUR palette instead of VS Code's, so the Founder pressed a shortcut he uses
+// constantly and got three unfamiliar entries. A guest application does not get to take the
+// host's shortcuts; mod+k still opens ours. `vscode_theme` is the parameter every version of the
+// extension sends, so it is the reliable "I am the panel" signal.
+const EMBEDDED_IN_VSCODE =
+  typeof location !== "undefined" && new URLSearchParams(location.search).get("vscode_theme") !== null
+
+export const DEFAULT_PALETTE_KEYBIND = EMBEDDED_IN_VSCODE ? "mod+k" : "mod+k,mod+shift+p"
 const SUGGESTED_PREFIX = "suggested."
 const EDITABLE_KEYBIND_IDS = new Set(["terminal.toggle", "terminal.new", "file.attach"])
 
