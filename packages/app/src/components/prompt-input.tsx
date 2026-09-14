@@ -137,7 +137,11 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
   let savedCursor: number | null = null
 
   const mirror = { input: false }
-  const inset = 56
+  // mindscript_change: space reserved under the text for the controls row, which is a 32px
+  // button sitting 8px from the bottom = 40px. It was 56, so an empty composer carried 16px of
+  // dead space and started far taller than the single line it contains. 44 keeps a 4px gap above
+  // the controls without letting text run under them.
+  const inset = 44
   const space = `${inset}px`
 
   const scrollCursorIntoView = () => {
