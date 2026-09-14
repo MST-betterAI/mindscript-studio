@@ -57,6 +57,11 @@ import { McpCatalog } from "@/mcp/catalog"
 
 export function webSearchEnabled(providerID: ProviderV2.ID, flags = { exa: false, parallel: false }) {
   return (
+    // mindscript_change: upstream gates this on its own hosted provider ids, so under our
+    // provider the tool was filtered out of every request and the model was never told web
+    // search existed. The backend needs no credential of ours - Exa's MCP endpoint answers
+    // tools/list unauthenticated - so the gate was the whole of the missing capability.
+    providerID === ProviderV2.ID.make("mindscript") ||
     providerID === ProviderV2.ID.opencode ||
     providerID === ProviderV2.ID.make("opencode-go") ||
     flags.exa ||

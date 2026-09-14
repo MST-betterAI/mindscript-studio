@@ -37,6 +37,12 @@ describe("websearch provider", () => {
     expect(selectWebSearchProvider(SESSION_ID, { exa: false, parallel: true })).toBe("parallel")
   })
 
+  // The gate was the whole of the missing capability: under our own provider the tool was
+  // filtered out of every request, so the model was never told web search existed.
+  test("is enabled for the mindscript provider, with no flag and no credential", () => {
+    expect(webSearchEnabled(ProviderV2.ID.make("mindscript"), { exa: false, parallel: false })).toBe(true)
+  })
+
   test("is enabled for OpenCode providers or explicit websearch provider flags", () => {
     expect(webSearchEnabled(ProviderV2.ID.opencode, { exa: false, parallel: false })).toBe(true)
     expect(webSearchEnabled(ProviderV2.ID.make("opencode-go"), { exa: false, parallel: false })).toBe(true)
