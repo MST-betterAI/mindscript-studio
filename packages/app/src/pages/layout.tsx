@@ -12,7 +12,7 @@ import {
   type Accessor,
 } from "solid-js"
 import { makeEventListener } from "@solid-primitives/event-listener"
-import { useNavigate, useParams } from "@solidjs/router"
+import { useLocation, useNavigate, useParams } from "@solidjs/router"
 import { useLayout, LocalProject } from "@/context/layout"
 import { useServerSync } from "@/context/server-sync"
 import { Persist, persisted } from "@/utils/persist"
@@ -112,6 +112,7 @@ export default function LegacyLayout(props: ParentProps) {
   let dialogDead = false
 
   const params = useParams()
+  const routerLocation = useLocation()
   const serverSync = useServerSync()
   const layout = useLayout()
   const layoutReady = createMemo(() => layout.ready())
@@ -1311,7 +1312,10 @@ export default function LegacyLayout(props: ParentProps) {
   function conversationLink() {
     const active = server.current
     const base = active && "http" in active ? active.http.url.replace(/\/+$/, "") : window.location.origin
-    const href = `${base}${window.location.pathname}`
+    // Router state, not window.location: the desktop serves the app from oc://renderer/index.html
+    // and never writes the route into the URL, so window.location.pathname there is always
+    // "/index.html" and would produce a link to nothing.
+    const href = `${base}${routerLocation.pathname}`
     return parseSessionUrl(href) ? href : undefined
   }
 
