@@ -1,6 +1,7 @@
 import { Effect, Stream } from "effect"
 import os from "os"
 import { createWriteStream } from "node:fs"
+import { describePreviewUrls, detectPreviewUrls } from "./preview-url"
 import * as Tool from "./tool"
 import path from "path"
 import { containsPath, type InstanceContext } from "../project/instance-context"
@@ -579,8 +580,16 @@ export const ShellTool = Tool.define(
         output = `...output truncated...\n\nFull output saved to: ${file}\n\n` + output
       }
 
-      if (meta.length > 0) {
-        output += "\n\n<shell_metadata>\n" + meta.join("\n") + "\n</shell_metadata>"
+      // mindscript_change: a dev server prints its address once and the session then forgets it,
+      // so the agent cannot answer "what is the URL for looking at your work?". Put it in the
+      // metadata block the model already reads, and keep it out of `output` proper so nothing
+      // that parses command output sees an extra line.
+      const previews = detectPreviewUrls(end.text)
+      const preview_line = describePreviewUrls(previews)
+      const notes = preview_line ? [...meta, preview_line] : meta
+
+      if (notes.length > 0) {
+        output += "\n\n<shell_metadata>\n" + notes.join("\n") + "\n</shell_metadata>"
       }
       return {
         title: input.command,
@@ -588,6 +597,7 @@ export const ShellTool = Tool.define(
           output: last || preview(output),
           exit: code,
           truncated: cut,
+          ...(previews.length > 0 ? { previewUrls: previews } : {}),
           ...(cut && file ? { outputPath: file } : {}),
         },
         output,
